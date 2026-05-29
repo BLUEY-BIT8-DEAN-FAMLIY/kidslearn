@@ -1,0 +1,228 @@
+.parents-screen {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.parents-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f0f0f0;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 10;
+  padding-top: 4px;
+}
+
+.parents-header h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.parents-header .back-btn {
+  background: var(--purple);
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+}
+
+.child-tabs {
+  display: flex;
+  gap: 8px;
+  background: #f5f5f5;
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.child-tabs .tab {
+  flex: 1;
+  background: transparent;
+  color: #666;
+  border-radius: 8px;
+  padding: 10px;
+  font-weight: 600;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tab-photo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center top;
+  border: 2px solid #5c6bc0;
+}
+
+.tab-photo.tab-photo-daughter { border-color: #e91e8c; }
+
+.child-tabs .tab.active {
+  background: #fff;
+  color: var(--purple);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.stats-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-num {
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section h2 {
+  font-size: 1.15rem;
+  color: #333;
+  font-weight: 700;
+}
+
+.topic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.topic-row {
+  display: grid;
+  grid-template-columns: 1fr 100px 80px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.92rem;
+}
+
+.topic-row.weak { background: #ffebee; }
+.topic-row.strong { background: #e8f5e9; }
+
+.topic-name { font-weight: 600; color: #333; }
+
+.topic-bar {
+  background: rgba(0,0,0,0.08);
+  border-radius: 6px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.4s;
+}
+
+.topic-stats { font-size: 0.82rem; color: #666; text-align: left; }
+
+.hint-text {
+  font-size: 0.88rem;
+  color: #5c6bc0;
+  background: #f0f4ff;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.session-item {
+  background: #f9f9f9;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.session-summary {
+  background: transparent;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  font-size: 0.95rem;
+}
+
+.session-summary:hover { background: #eee; }
+
+.session-date { color: #666; }
+.session-score { font-weight: 700; color: var(--purple); }
+.expand-icon { color: #999; font-size: 0.8rem; }
+
+.session-details {
+  padding: 4px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-row {
+  display: grid;
+  grid-template-columns: 24px 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.detail-row.correct { background: #e8f5e9; }
+.detail-row.corrected { background: #fff3e0; }
+.detail-row.wrong { background: #fce4ec; }
+
+.d-q { font-weight: 600; color: #333; }
+.d-ans { color: var(--purple); font-size: 0.82rem; }
+.d-att { color: #999; font-size: 0.75rem; }
+
+.empty-state {
+  text-align: center;
+  padding: 24px;
+  color: #999;
+  font-size: 0.95rem;
+  background: #fafafa;
+  border-radius: 10px;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}

@@ -1,0 +1,73 @@
+.hebrew-kbd {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  background: #f0f4ff;
+  padding: 12px 8px;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 480px;
+  margin-top: 4px;
+  direction: ltr;
+}
+
+.hebrew-kbd.disabled { opacity: 0.5; pointer-events: none; }
+
+.kbd-row {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.kbd-key {
+  background: #fff;
+  border: 2px solid #c5cae9;
+  border-radius: 8px;
+  width: 38px;
+  height: 44px;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #333;
+  cursor: pointer;
+  transition: background 0.1s, transform 0.1s;
+  font-family: inherit;
+}
+
+.kbd-key:hover:not(:disabled) {
+  background: #e3e8ff;
+  border-color: var(--purple);
+}
+
+.kbd-key:active:not(:disabled) {
+  transform: scale(0.92);
+  background: var(--purple);
+  color: #fff;
+}
+
+.kbd-actions {
+  margin-top: 6px;
+  width: 100%;
+  justify-content: space-around;
+  gap: 12px;
+}
+
+.kbd-back {
+  width: 80px;
+  background: #fff3e0;
+  border-color: #ffb74d;
+  color: #e65100;
+}
+
+.kbd-submit {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+  width: 120px;
+  font-size: 1rem;
+}
+
+.kbd-submit:hover:not(:disabled) {
+  background: #2e7d32;
+}

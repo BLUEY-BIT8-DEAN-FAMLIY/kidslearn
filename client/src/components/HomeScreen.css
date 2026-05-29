@@ -1,0 +1,134 @@
+.home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  width: 100%;
+  max-width: 700px;
+}
+
+.home-title {
+  text-align: center;
+  color: #fff;
+}
+
+.home-stars {
+  font-size: 1.4rem;
+  margin-bottom: 8px;
+  letter-spacing: 4px;
+}
+
+.home-title h1 {
+  font-size: 2.8rem;
+  font-weight: 800;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.home-title p {
+  font-size: 1.3rem;
+  opacity: 0.9;
+  margin-top: 6px;
+}
+
+.home-cards {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.child-card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 36px 32px;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.child-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 14px 40px rgba(0,0,0,0.24);
+}
+
+.child-card.son { border-top: 6px solid #5c6bc0; }
+.child-card.daughter { border-top: 6px solid #e91e8c; }
+
+.child-emoji {
+  font-size: 4rem;
+  line-height: 1;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.child-photo {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center top;
+  border: 4px solid #5c6bc0;
+  background: linear-gradient(135deg, #e3e8ff, #f0f4ff);
+  box-shadow: 0 4px 12px rgba(92,107,192,0.3);
+}
+
+.child-photo.daughter-photo {
+  border-color: #e91e8c;
+  background: linear-gradient(135deg, #fce4ec, #fff0f5);
+  box-shadow: 0 4px 12px rgba(233,30,140,0.3);
+}
+
+.child-name {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.child-desc {
+  font-size: 0.95rem;
+  color: #666;
+}
+
+.child-tag {
+  background: #f0f4ff;
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 0.82rem;
+  color: #5c6bc0;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.home-date {
+  color: rgba(255,255,255,0.85);
+  font-size: 1rem;
+}
+
+.home-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.parents-btn {
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 24px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: 2px solid rgba(255,255,255,0.3);
+  transition: background 0.2s;
+}
+
+.parents-btn:hover {
+  background: rgba(255,255,255,0.3);
+}

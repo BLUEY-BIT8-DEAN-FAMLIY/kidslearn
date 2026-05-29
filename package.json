@@ -1,0 +1,63 @@
+{
+  "name": "kidslearn",
+  "productName": "KidsLearn",
+  "version": "1.0.0",
+  "description": "אפליקציית לימוד יומית לדין וליה",
+  "main": "electron/main.cjs",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && node --watch index.js",
+    "dev:client": "cd client && npm run dev",
+    "install:all": "cd client && npm install && cd ../server && npm install",
+    "build:client": "cd client && npm run build",
+    "electron": "electron .",
+    "dist": "npm run build:client && electron-builder --win"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^4.22.2",
+    "nodemailer": "^6.10.1"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^42.2.0",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.kidslearn.app",
+    "productName": "KidsLearn",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "server/**/*",
+      "client/dist/**/*",
+      "kidslearn.ico",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "kidslearn.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "KidsLearn"
+    },
+    "asar": true
+  }
+}

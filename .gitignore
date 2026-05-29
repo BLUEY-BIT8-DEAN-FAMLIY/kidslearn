@@ -1,0 +1,51 @@
+# ─── Dependencies ─────────────────────────────────────────────
+node_modules/
+*/node_modules/
+
+# ─── Build outputs ───────────────────────────────────────────
+client/dist/
+dist-electron/
+*.tsbuildinfo
+
+# ─── Private / sensitive data (DO NOT COMMIT) ────────────────
+# Contains SMTP password, recipient emails, child history, etc.
+server/data/*
+# …but DO keep the sample config so other machines know what fields to fill in
+!server/data/config.sample.json
+*.log
+server/server.log
+server/server.err
+
+# ─── Editor / OS junk ────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ─── npm / Node ──────────────────────────────────────────────
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.env
+.env.local
+.env.*.local
+
+# ─── Misc ────────────────────────────────────────────────────
+*.bak
+*.tmp
+.cache/
+WebsiteBuilder/
+
+# ─── Other unrelated projects in this folder (NOT part of KidsLearn) ──
+.claude/
+WIPS/
+bg-replacer/
+bg-replacer-web/
+birthday-adventure-pro/
+cooking-game/
+ketchup-game/
+icon.png

@@ -1,0 +1,10 @@
+{
+  "email": {
+    "enabled": false,
+    "smtpHost": "smtp.gmail.com",
+    "smtpPort": 587,
+    "smtpUser": "your-email@gmail.com",
+    "smtpPass": "your-16-char-app-password",
+    "recipients": "parent1@gmail.com, parent2@gmail.com"
+  }
+}
