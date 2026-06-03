@@ -1,0 +1,96 @@
+name: Build & Release
+
+# Builds KidsLearn for Windows, macOS and Linux on GitHub's cloud runners
+# and attaches the installers to a GitHub Release.
+#
+# Trigger it by pushing a version tag (e.g. v1.0.0) or manually from the
+# Actions tab ("Run workflow").
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+          - os: macos-latest
+            platform: mac
+          - os: ubuntu-latest
+            platform: linux
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install root dependencies
+        run: npm install
+
+      - name: Install client dependencies
+        run: npm install
+        working-directory: client
+
+      - name: Install server dependencies
+        run: npm install
+        working-directory: server
+
+      - name: Build client
+        run: npm run build
+        working-directory: client
+
+      - name: Build Electron app (${{ matrix.platform }})
+        run: npx electron-builder --${{ matrix.platform }} --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload installers as build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kidslearn-${{ matrix.platform }}
+          path: |
+            dist-electron/*.exe
+            dist-electron/*.dmg
+            dist-electron/*.zip
+            dist-electron/*.AppImage
+            dist-electron/*.deb
+          if-no-files-found: ignore
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: KidsLearn ${{ github.event.inputs.tag || github.ref_name }}
+          generate_release_notes: false
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

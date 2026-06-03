@@ -2,7 +2,33 @@
 
 אפליקציית לימוד יומית לילדים — חיבור, חיסור, גאומטריה ועברית. כוללת דוחות מייל יומיים להורים, מערכת חזרה אוטומטית על שאלות שטועים בהן, ו-TTS עברי מובנה.
 
-## דרישות מערכת
+## ⬇️ הורדה והתקנה (למשתמשים)
+
+הורידו את הגרסה למערכת ההפעלה שלכם מ-[**דף ההורדות (Releases)**](https://github.com/deanavraham-bit/kidslearn/releases/latest):
+
+| מערכת הפעלה | קובץ להורדה | התקנה |
+|---|---|---|
+| 🪟 **Windows** | `KidsLearn.Setup.x.x.x.exe` | כפול קליק → Next → Install |
+| 🍎 **macOS** | `KidsLearn-x.x.x.dmg` | פתחו → גררו ל-Applications |
+| 🐧 **Linux** | `KidsLearn-x.x.x.AppImage` | `chmod +x` → כפול קליק |
+
+### התקנה בפקודה אחת
+
+**Windows (PowerShell):**
+```powershell
+$u="https://github.com/deanavraham-bit/kidslearn/releases/latest/download/KidsLearn.Setup.1.0.0.exe";$d="$env:TEMP\KidsLearn-Setup.exe";iwr $u -OutFile $d;Start-Process $d
+```
+
+**macOS / Linux (Terminal):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/deanavraham-bit/kidslearn/main/install.sh | bash
+```
+
+> כל ההגדרות (כולל סיסמת המייל) נשמרות מקומית בכל מחשב — אין סודות בקבצי ההתקנה.
+
+---
+
+## דרישות מערכת (לפיתוח / הרצה מהמקור)
 
 - **Windows 10 / 11**
 - **Node.js 20+** — להוריד מ-<https://nodejs.org/>
