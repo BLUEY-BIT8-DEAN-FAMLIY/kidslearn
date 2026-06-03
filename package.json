@@ -33,6 +33,12 @@
     "files": [
       "electron/**/*",
       "server/**/*",
+      "!server/data/config.json",
+      "!server/data/history.json",
+      "!server/data/review.json",
+      "!server/server.log",
+      "!server/server.err",
+      "!server/.env",
       "client/dist/**/*",
       "kidslearn.ico",
       "package.json"
