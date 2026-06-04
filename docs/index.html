@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KidsLearn 🌟 — אפליקציית לימוד יומית לילדים</title>
+<meta name="description" content="אפליקציית לימוד יומית לילדים – חשבון, גאומטריה ועברית. דוחות יומיים להורים.">
+<link rel="icon" href="https://raw.githubusercontent.com/deanavraham-bit/kidslearn/main/build/icon.png">
+<style>
+  :root{
+    --purple:#667eea; --purple-dark:#764ba2; --green:#43a047; --ink:#2d2d44;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Segoe UI',Arial,sans-serif;color:var(--ink);
+    background:linear-gradient(160deg,#f3f0ff 0%,#fef6ff 100%);
+    min-height:100vh;line-height:1.6;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:0 20px}
+
+  header{text-align:center;padding:60px 20px 30px}
+  .logo{
+    width:120px;height:120px;border-radius:30px;
+    background:linear-gradient(135deg,var(--purple),var(--purple-dark));
+    display:flex;align-items:center;justify-content:center;font-size:70px;
+    margin:0 auto 20px;box-shadow:0 12px 40px rgba(102,126,234,.4);
+  }
+  h1{font-size:2.8rem;background:linear-gradient(135deg,var(--purple),var(--purple-dark));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+  .tagline{font-size:1.25rem;color:#666;margin-bottom:6px}
+  .sub{color:#999;font-size:.95rem}
+
+  .detected{
+    background:#fff;border-radius:20px;padding:28px;margin:30px 0;
+    box-shadow:0 8px 30px rgba(0,0,0,.08);text-align:center;
+    border:2px solid #eee;
+  }
+  .detected .os-name{font-size:1.1rem;color:#888;margin-bottom:14px}
+  .detected .os-name b{color:var(--ink)}
+  .btn-primary{
+    display:inline-flex;align-items:center;gap:10px;
+    background:linear-gradient(135deg,var(--green),#00acc1);color:#fff;
+    font-size:1.3rem;font-weight:700;text-decoration:none;
+    padding:18px 40px;border-radius:16px;
+    box-shadow:0 8px 24px rgba(67,160,71,.35);transition:transform .15s, box-shadow .15s;
+  }
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(67,160,71,.45)}
+  .hint{margin-top:14px;font-size:.85rem;color:#aaa}
+
+  h2{font-size:1.5rem;margin:40px 0 16px;text-align:center;color:var(--purple-dark)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .card{background:#fff;border-radius:16px;padding:22px;box-shadow:0 4px 18px rgba(0,0,0,.06);border:1px solid #f0f0f0}
+  .card h3{display:flex;align-items:center;gap:8px;font-size:1.15rem;margin-bottom:6px}
+  .card p{font-size:.85rem;color:#888;margin-bottom:14px;min-height:34px}
+  .dl{display:block;text-align:center;background:#f5f3ff;color:var(--purple-dark);
+    text-decoration:none;font-weight:600;padding:11px;border-radius:10px;margin-bottom:8px;
+    transition:background .15s;font-size:.92rem}
+  .dl:hover{background:#e9e4ff}
+  .dl.alt{background:#f7f7f7;color:#666;font-size:.82rem;padding:8px}
+
+  .cmd-box{background:#1e1e2e;border-radius:14px;padding:18px 20px;margin:14px 0;position:relative;overflow:hidden}
+  .cmd-box .label{color:#9aa;font-size:.8rem;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+  .cmd-box code{color:#a6e3a1;font-family:'Consolas','Courier New',monospace;font-size:.82rem;
+    word-break:break-all;display:block;direction:ltr;text-align:left}
+  .copy{position:absolute;top:14px;left:14px;background:#45475a;color:#fff;border:none;
+    border-radius:7px;padding:5px 12px;font-size:.75rem;cursor:pointer;font-family:inherit}
+  .copy:hover{background:#585b70}
+
+  .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin:20px 0}
+  .feat{background:#fff;border-radius:14px;padding:18px;text-align:center;box-shadow:0 3px 14px rgba(0,0,0,.05)}
+  .feat .ico{font-size:2rem;margin-bottom:6px}
+  .feat .t{font-weight:600;font-size:.95rem}
+
+  .note{background:#fff8e6;border:1px solid #ffe08a;border-radius:14px;padding:16px 20px;margin:24px 0;font-size:.9rem;color:#7a5c00}
+  .note b{color:#5a4400}
+
+  footer{text-align:center;padding:40px 20px 50px;color:#aaa;font-size:.85rem}
+  footer a{color:var(--purple)}
+  .req{font-size:.8rem;color:#bbb;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">⭐</div>
+    <h1>KidsLearn</h1>
+    <p class="tagline">אפליקציית לימוד יומית לילדים</p>
+    <p class="sub">חשבון · גאומטריה · עברית — עם דוחות יומיים להורים 📧</p>
+  </header>
+
+  <!-- Auto-detected OS download -->
+  <div class="detected">
+    <div class="os-name">המערכת שזיהינו: <b id="osLabel">…</b></div>
+    <a id="mainDownload" class="btn-primary" href="#all">⬇️ הורד עכשיו</a>
+    <div class="hint" id="mainHint"></div>
+  </div>
+
+  <!-- All platforms -->
+  <h2 id="all">כל ההורדות</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>🪟 Windows</h3>
+      <p>Windows 10 / 11</p>
+      <a class="dl" href="https://github.com/deanavraham-bit/kidslearn/releases/latest/download/KidsLearn.Setup.1.0.0.exe">מתקין (.exe) — 98MB</a>
+    </div>
+    <div class="card">
+      <h3>🍎 macOS</h3>
+      <p>בחר לפי סוג המעבד</p>
+      <a class="dl" href="https://github.com/deanavraham-bit/kidslearn/releases/latest/download/KidsLearn-1.0.0-arm64.dmg">Apple Silicon (M1–M4)</a>
+      <a class="dl alt" href="https://github.com/deanavraham-bit/kidslearn/releases/latest/download/KidsLearn-1.0.0.dmg">Intel (מקים ישנים)</a>
+    </div>
+    <div class="card">
+      <h3>🐧 Linux</h3>
+      <p>כל הפצה / Ubuntu·Debian</p>
+      <a class="dl" href="https://github.com/deanavraham-bit/kidslearn/releases/latest/download/KidsLearn-1.0.0.AppImage">AppImage (כל הפצה)</a>
+      <a class="dl alt" href="https://github.com/deanavraham-bit/kidslearn/releases/latest/download/kidslearn_1.0.0_amd64.deb">.deb (Ubuntu/Debian)</a>
+    </div>
+  </div>
+
+  <!-- One-line install -->
+  <h2>התקנה בפקודה אחת</h2>
+
+  <div class="cmd-box">
+    <div class="label">🪟 Windows — PowerShell</div>
+    <button class="copy" onclick="copyCmd(this)">העתק</button>
+    <code>$u="https://github.com/deanavraham-bit/kidslearn/releases/latest/download/KidsLearn.Setup.1.0.0.exe";$d="$env:TEMP\KidsLearn-Setup.exe";iwr $u -OutFile $d;Start-Process $d</code>
+  </div>
+
+  <div class="cmd-box">
+    <div class="label">🍎🐧 macOS / Linux — Terminal</div>
+    <button class="copy" onclick="copyCmd(this)">העתק</button>
+    <code>curl -fsSL https://raw.githubusercontent.com/deanavraham-bit/kidslearn/main/install.sh | bash</code>
+  </div>
+
+  <!-- Features -->
+  <h2>מה יש בפנים?</h2>
+  <div class="features">
+    <div class="feat"><div class="ico">➕</div><div class="t">חשבון</div></div>
+    <div class="feat"><div class="ico">🔷</div><div class="t">גאומטריה</div></div>
+    <div class="feat"><div class="ico">🔤</div><div class="t">עברית + הקראה</div></div>
+    <div class="feat"><div class="ico">🔁</div><div class="t">חזרה על טעויות</div></div>
+    <div class="feat"><div class="ico">📧</div><div class="t">דוח יומי להורים</div></div>
+    <div class="feat"><div class="ico">📊</div><div class="t">מעקב התקדמות</div></div>
+  </div>
+
+  <div class="note">
+    <b>הערה על אזהרות אבטחה:</b> האפליקציה לא חתומה דיגיטלית (חתימה עולה כסף).
+    ב-Windows לחצו <b>"More info" → "Run anyway"</b>. ב-Mac לחצו קליק-ימני על האפליקציה → <b>"Open" → "Open"</b>.
+    כל ההגדרות נשמרות מקומית במחשב — אין סודות בקובץ ההתקנה.
+  </div>
+
+  <footer>
+    קוד מקור: <a href="https://github.com/deanavraham-bit/kidslearn">github.com/deanavraham-bit/kidslearn</a><br>
+    נבנה באהבה 💜 ל-KidsLearn
+  </footer>
+
+</div>
+
+<script>
+  // OS detection → highlight the right download
+  (function(){
+    var p = navigator.platform.toLowerCase();
+    var ua = navigator.userAgent.toLowerCase();
+    var base = "https://github.com/deanavraham-bit/kidslearn/releases/latest/download/";
+    var label = document.getElementById('osLabel');
+    var btn = document.getElementById('mainDownload');
+    var hint = document.getElementById('mainHint');
+
+    var os = 'אחר';
+    if (p.indexOf('win') > -1 || ua.indexOf('windows') > -1) {
+      os = 'Windows'; label.textContent = 'Windows';
+      btn.href = base + 'KidsLearn.Setup.1.0.0.exe';
+      btn.innerHTML = '⬇️ הורד ל-Windows (.exe)';
+      hint.textContent = 'אחרי ההורדה: כפול קליק → אם מופיע SmartScreen → More info → Run anyway';
+    } else if (p.indexOf('mac') > -1 || ua.indexOf('mac') > -1) {
+      os = 'macOS'; label.textContent = 'macOS';
+      // Best-effort arch guess (most new macs are arm)
+      btn.href = base + 'KidsLearn-1.0.0-arm64.dmg';
+      btn.innerHTML = '⬇️ הורד ל-Mac (Apple Silicon)';
+      hint.innerHTML = 'מק עם מעבד Intel? <a href="'+base+'KidsLearn-1.0.0.dmg">הורד את גרסת Intel</a>';
+    } else if (p.indexOf('linux') > -1 || ua.indexOf('linux') > -1) {
+      os = 'Linux'; label.textContent = 'Linux';
+      btn.href = base + 'KidsLearn-1.0.0.AppImage';
+      btn.innerHTML = '⬇️ הורד ל-Linux (AppImage)';
+      hint.innerHTML = 'אחרי ההורדה: <code style="direction:ltr">chmod +x</code> ואז כפול קליק. או <a href="'+base+'kidslearn_1.0.0_amd64.deb">קובץ .deb</a>';
+    } else {
+      label.textContent = 'לא זוהתה';
+      btn.setAttribute('href', '#all');
+      btn.innerHTML = '⬇️ ראה את כל ההורדות';
+    }
+  })();
+
+  function copyCmd(b){
+    var code = b.parentElement.querySelector('code').textContent;
+    navigator.clipboard.writeText(code).then(function(){
+      var t = b.textContent; b.textContent = '✓ הועתק';
+      setTimeout(function(){ b.textContent = t; }, 1500);
+    });
+  }
+</script>
+</body>
+</html>
