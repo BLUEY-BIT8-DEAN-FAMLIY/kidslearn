@@ -88,11 +88,11 @@ app.get('/api/children', (req, res) => {
 });
 
 app.post('/api/children', (req, res) => {
-  const { name, gender, subject, photo } = req.body || {};
+  const { name, gender, subject, avatar, photo } = req.body || {};
   if (!name || !String(name).trim()) return res.status(400).json({ error: 'חסר שם' });
   // Reject oversized photos (defensive – client already downscales)
   if (photo && photo.length > 6_000_000) return res.status(413).json({ error: 'התמונה גדולה מדי' });
-  const child = addChild({ name, gender, subject, photo });
+  const child = addChild({ name, gender, subject, avatar, photo });
   res.json({ ok: true, child });
 });
 
@@ -232,7 +232,7 @@ app.post('/api/config/email/test', async (req, res) => {
       subject: 'KidsLearn – מייל בדיקה',
       html: `<div dir="rtl" style="font-family:Arial,sans-serif;padding:20px">
         <h2 style="color:#5c6bc0">✅ הגדרות המייל פועלות!</h2>
-        <p>מעכשיו תקבלו דוח אוטומטי בכל פעם שדין או ליה יסיימו את התרגילים היומיים שלהם.</p>
+        <p>מעכשיו תקבלו דוח אוטומטי בכל פעם שהילדים יסיימו את התרגילים היומיים שלהם.</p>
       </div>`,
     });
     res.json({ ok: true });
@@ -344,7 +344,7 @@ async function sendReminderEmail(child, childName) {
     <div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
       <h2 style="color:#e65100">⏰ תזכורת יומית – KidsLearn</h2>
       <p style="font-size:1.1em">${childName} עדיין לא השלים/ה את התרגילים היומיים!</p>
-      <p>כדאי לשבת יחד עכשיו ולעשות את ${childName === 'דין' ? '10 התרגילים' : '10 תרגילי העברית'} לפני השינה.</p>
+      <p>כדאי לשבת יחד עכשיו ולעשות את התרגילים היומיים לפני השינה.</p>
       <p style="margin-top:20px;color:#777;font-size:12px">נשלח מ-KidsLearn 🌟</p>
     </div>`;
 
@@ -372,7 +372,9 @@ function checkDailyCompletion() {
   const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
   const history = readHistory();
 
-  for (const [child, childName] of [['son', 'דין'], ['daughter', 'ליה']]) {
+  for (const profile of readChildren()) {
+    const child = profile.id;
+    const childName = profile.name;
     if (reminderSentDates[child] === today) continue; // already sent today
 
     const sessions = history[child] || [];

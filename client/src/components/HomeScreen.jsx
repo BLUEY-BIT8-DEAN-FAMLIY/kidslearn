@@ -33,8 +33,9 @@ export default function HomeScreen({ onSelect, onParents }) {
   }
 
   function photoFor(child) {
-    const emoji = child.gender === 'girl' ? '👧' : '👦';
-    if (child.photo) {
+    const emoji = child.avatar || (child.gender === 'girl' ? '👧' : '👦');
+    // Legacy data may still carry a photo; otherwise show the avatar emoji.
+    if (child.photo && !child.avatar) {
       return (
         <img
           src={child.photo}
@@ -52,7 +53,7 @@ export default function HomeScreen({ onSelect, onParents }) {
       <div className="home-title">
         <div className="home-stars">⭐ KidsLearn ⭐</div>
         <h1>ברוכים הבאים!</h1>
-        <p>מי רוצה ללמוד היום?</p>
+        <p>{!loading && children.length === 0 ? 'הוסיפו ילד/ה כדי להתחיל ✨' : 'מי רוצה ללמוד היום?'}</p>
       </div>
 
       <div className="home-cards">
@@ -81,7 +82,7 @@ export default function HomeScreen({ onSelect, onParents }) {
           <button className="child-card add-card" onClick={() => setShowAdd(true)}>
             <div className="add-plus">＋</div>
             <div className="child-name">הוסף ילד/ה</div>
-            <div className="child-tag">שם · תמונה · בן/בת</div>
+            <div className="child-tag">שם · אווטאר · בן/בת</div>
           </button>
         )}
       </div>

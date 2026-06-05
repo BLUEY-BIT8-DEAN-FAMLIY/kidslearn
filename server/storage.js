@@ -12,11 +12,8 @@ const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const REVIEW_FILE = path.join(DATA_DIR, 'review.json');
 const CHILDREN_FILE = path.join(DATA_DIR, 'children.json');
 
-// The two original children ship with the app. New ones are added by parents.
-const DEFAULT_CHILDREN = [
-  { id: 'son', name: 'דין', gender: 'boy', subject: 'math', photo: '/dean.png', builtin: true },
-  { id: 'daughter', name: 'ליה', gender: 'girl', subject: 'hebrew', photo: '/liya.png', builtin: true },
-];
+// No children ship with the app – each family creates their own profiles.
+const DEFAULT_CHILDREN = [];
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -63,7 +60,7 @@ export function getChild(id) {
 }
 
 /** Add a new child. `seq` makes the id unique without relying on Date.now(). */
-export function addChild({ name, gender, subject, photo }) {
+export function addChild({ name, gender, subject, avatar, photo }) {
   const list = readChildren();
   const base = 'kid';
   let n = 1;
@@ -73,6 +70,7 @@ export function addChild({ name, gender, subject, photo }) {
     name: String(name || '').trim() || 'ילד/ה',
     gender: gender === 'girl' ? 'girl' : 'boy',
     subject: subject === 'hebrew' ? 'hebrew' : 'math',
+    avatar: avatar || '',
     photo: photo || '',
     builtin: false,
   };

@@ -74,7 +74,7 @@ export default function ParentsScreen({ onBack }) {
   }, [activeChild]);
 
   const activeProfile = children.find(c => c.id === activeChild);
-  const childName = activeProfile ? activeProfile.name : (activeChild === 'son' ? 'דין' : 'ליה');
+  const childName = activeProfile ? activeProfile.name : '';
 
   // Sort by-type stats by weakness (most wrong first)
   const sortedTypes = stats
@@ -100,9 +100,9 @@ export default function ParentsScreen({ onBack }) {
             className={`tab ${activeChild === c.id ? 'active' : ''}`}
             onClick={() => setActiveChild(c.id)}
           >
-            {c.photo
+            {c.photo && !c.avatar
               ? <img src={c.photo} alt="" className={`tab-photo ${c.subject === 'hebrew' ? 'tab-photo-daughter' : ''}`} />
-              : <span className="tab-emoji">{c.gender === 'girl' ? '👧' : '👦'}</span>}
+              : <span className="tab-emoji">{c.avatar || (c.gender === 'girl' ? '👧' : '👦')}</span>}
             {c.name}
           </button>
         ))}

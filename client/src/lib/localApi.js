@@ -11,13 +11,8 @@ const K = {
   children: 'kidslearn:children',
 };
 
-// BASE_URL makes the built-in photos resolve correctly when the web app is
-// served from a sub-path (e.g. /app/).
-const B = import.meta.env.BASE_URL || '/';
-const DEFAULT_CHILDREN = [
-  { id: 'son', name: 'דין', gender: 'boy', subject: 'math', photo: `${B}dean.png`, builtin: true },
-  { id: 'daughter', name: 'ליה', gender: 'girl', subject: 'hebrew', photo: `${B}liya.png`, builtin: true },
-];
+// No children ship with the app – each family creates their own profiles.
+const DEFAULT_CHILDREN = [];
 
 function read(key, fallback) {
   try {
@@ -44,7 +39,7 @@ export async function fetchChildren() {
   return { children: readChildren() };
 }
 
-export async function addChild({ name, gender, subject, photo }) {
+export async function addChild({ name, gender, subject, avatar, photo }) {
   const list = readChildren();
   let n = 1;
   while (list.some(c => c.id === `kid_${n}`)) n++;
@@ -53,6 +48,7 @@ export async function addChild({ name, gender, subject, photo }) {
     name: String(name || '').trim() || 'ילד/ה',
     gender: gender === 'girl' ? 'girl' : 'boy',
     subject: subject === 'hebrew' ? 'hebrew' : 'math',
+    avatar: avatar || '',
     photo: photo || '',
     builtin: false,
   };
