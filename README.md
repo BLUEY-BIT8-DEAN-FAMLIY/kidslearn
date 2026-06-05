@@ -16,7 +16,7 @@
 
 **Windows (PowerShell):**
 ```powershell
-$u="https://github.com/deanavraham-bit/kidslearn/releases/latest/download/KidsLearn.Setup.1.0.0.exe";$d="$env:TEMP\KidsLearn-Setup.exe";iwr $u -OutFile $d;Start-Process $d
+irm https://raw.githubusercontent.com/deanavraham-bit/kidslearn/main/install.ps1 | iex
 ```
 
 **macOS / Linux (Terminal):**
@@ -63,7 +63,7 @@ copy server\data\config.sample.json server\data\config.json
 ```powershell
 npm run dist
 ```
-נוצר `dist-electron\KidsLearn Setup 1.0.0.exe` — התקנה רגילה של Windows שיוצרת קיצור בשולחן העבודה.
+נוצר `dist-electron\KidsLearn Setup <version>.exe` — התקנה רגילה של Windows שיוצרת קיצור בשולחן העבודה.
 
 ### אופציה ג — מצב פיתוח
 ```powershell

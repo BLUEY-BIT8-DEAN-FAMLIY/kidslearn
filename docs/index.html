@@ -120,19 +120,19 @@
     <div class="card">
       <h3>🪟 Windows</h3>
       <p>Windows 10 / 11</p>
-      <a class="dl" href="https://github.com/deanavraham-bit/kidslearn/releases/latest/download/KidsLearn.Setup.1.0.0.exe">מתקין (.exe) — 98MB</a>
+      <a class="dl" data-dl="win" href="https://github.com/deanavraham-bit/kidslearn/releases/latest">מתקין (.exe)</a>
     </div>
     <div class="card">
       <h3>🍎 macOS</h3>
       <p>בחר לפי סוג המעבד</p>
-      <a class="dl" href="https://github.com/deanavraham-bit/kidslearn/releases/latest/download/KidsLearn-1.0.0-arm64.dmg">Apple Silicon (M1–M4)</a>
-      <a class="dl alt" href="https://github.com/deanavraham-bit/kidslearn/releases/latest/download/KidsLearn-1.0.0.dmg">Intel (מקים ישנים)</a>
+      <a class="dl" data-dl="mac-arm" href="https://github.com/deanavraham-bit/kidslearn/releases/latest">Apple Silicon (M1–M4)</a>
+      <a class="dl alt" data-dl="mac-intel" href="https://github.com/deanavraham-bit/kidslearn/releases/latest">Intel (מקים ישנים)</a>
     </div>
     <div class="card">
       <h3>🐧 Linux</h3>
       <p>כל הפצה / Ubuntu·Debian</p>
-      <a class="dl" href="https://github.com/deanavraham-bit/kidslearn/releases/latest/download/KidsLearn-1.0.0.AppImage">AppImage (כל הפצה)</a>
-      <a class="dl alt" href="https://github.com/deanavraham-bit/kidslearn/releases/latest/download/kidslearn_1.0.0_amd64.deb">.deb (Ubuntu/Debian)</a>
+      <a class="dl" data-dl="linux-appimage" href="https://github.com/deanavraham-bit/kidslearn/releases/latest">AppImage (כל הפצה)</a>
+      <a class="dl alt" data-dl="linux-deb" href="https://github.com/deanavraham-bit/kidslearn/releases/latest">.deb (Ubuntu/Debian)</a>
     </div>
   </div>
 
@@ -142,7 +142,7 @@
   <div class="cmd-box">
     <div class="label">🪟 Windows — PowerShell</div>
     <button class="copy" onclick="copyCmd(this)">העתק</button>
-    <code>$u="https://github.com/deanavraham-bit/kidslearn/releases/latest/download/KidsLearn.Setup.1.0.0.exe";$d="$env:TEMP\KidsLearn-Setup.exe";iwr $u -OutFile $d;Start-Process $d</code>
+    <code>irm https://raw.githubusercontent.com/deanavraham-bit/kidslearn/main/install.ps1 | iex</code>
   </div>
 
   <div class="cmd-box">
@@ -176,38 +176,62 @@
 </div>
 
 <script>
-  // OS detection → highlight the right download
-  (function(){
+  // Resolve download links to the LATEST release assets (so version bumps
+  // never break the links). Matches assets by name pattern.
+  function matchAsset(assets, kind){
+    var lower = function(a){ return a.name.toLowerCase(); };
+    if (kind === 'win')           return assets.find(function(a){ return lower(a).endsWith('.exe'); });
+    if (kind === 'mac-arm')       return assets.find(function(a){ return lower(a).indexOf('arm64')>-1 && lower(a).endsWith('.dmg'); });
+    if (kind === 'mac-intel')     return assets.find(function(a){ return lower(a).endsWith('.dmg') && lower(a).indexOf('arm64')===-1; });
+    if (kind === 'linux-appimage')return assets.find(function(a){ return lower(a).endsWith('.appimage'); });
+    if (kind === 'linux-deb')     return assets.find(function(a){ return lower(a).endsWith('.deb'); });
+    return null;
+  }
+
+  var DL = {}; // resolved urls by kind
+
+  function setupOsButton(){
     var p = navigator.platform.toLowerCase();
     var ua = navigator.userAgent.toLowerCase();
-    var base = "https://github.com/deanavraham-bit/kidslearn/releases/latest/download/";
     var label = document.getElementById('osLabel');
     var btn = document.getElementById('mainDownload');
     var hint = document.getElementById('mainHint');
 
-    var os = 'אחר';
     if (p.indexOf('win') > -1 || ua.indexOf('windows') > -1) {
-      os = 'Windows'; label.textContent = 'Windows';
-      btn.href = base + 'KidsLearn.Setup.1.0.0.exe';
+      label.textContent = 'Windows';
+      if (DL['win']) btn.href = DL['win'];
       btn.innerHTML = '⬇️ הורד ל-Windows (.exe)';
       hint.textContent = 'אחרי ההורדה: כפול קליק → אם מופיע SmartScreen → More info → Run anyway';
     } else if (p.indexOf('mac') > -1 || ua.indexOf('mac') > -1) {
-      os = 'macOS'; label.textContent = 'macOS';
-      // Best-effort arch guess (most new macs are arm)
-      btn.href = base + 'KidsLearn-1.0.0-arm64.dmg';
+      label.textContent = 'macOS';
+      if (DL['mac-arm']) btn.href = DL['mac-arm'];
       btn.innerHTML = '⬇️ הורד ל-Mac (Apple Silicon)';
-      hint.innerHTML = 'מק עם מעבד Intel? <a href="'+base+'KidsLearn-1.0.0.dmg">הורד את גרסת Intel</a>';
+      if (DL['mac-intel']) hint.innerHTML = 'מק עם מעבד Intel? <a href="'+DL['mac-intel']+'">הורד את גרסת Intel</a>';
     } else if (p.indexOf('linux') > -1 || ua.indexOf('linux') > -1) {
-      os = 'Linux'; label.textContent = 'Linux';
-      btn.href = base + 'KidsLearn-1.0.0.AppImage';
+      label.textContent = 'Linux';
+      if (DL['linux-appimage']) btn.href = DL['linux-appimage'];
       btn.innerHTML = '⬇️ הורד ל-Linux (AppImage)';
-      hint.innerHTML = 'אחרי ההורדה: <code style="direction:ltr">chmod +x</code> ואז כפול קליק. או <a href="'+base+'kidslearn_1.0.0_amd64.deb">קובץ .deb</a>';
+      hint.innerHTML = 'אחרי ההורדה: <code style="direction:ltr">chmod +x</code> ואז כפול קליק.';
     } else {
       label.textContent = 'לא זוהתה';
       btn.setAttribute('href', '#all');
       btn.innerHTML = '⬇️ ראה את כל ההורדות';
     }
-  })();
+  }
+
+  // Fetch latest release, wire up every [data-dl] link + the OS button.
+  fetch('https://api.github.com/repos/deanavraham-bit/kidslearn/releases/latest')
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(rel){
+      if (rel && rel.assets) {
+        document.querySelectorAll('[data-dl]').forEach(function(a){
+          var asset = matchAsset(rel.assets, a.getAttribute('data-dl'));
+          if (asset) { DL[a.getAttribute('data-dl')] = asset.browser_download_url; a.href = asset.browser_download_url; }
+        });
+      }
+    })
+    .catch(function(){})
+    .finally(setupOsButton);
 
   function copyCmd(b){
     var code = b.parentElement.querySelector('code').textContent;
