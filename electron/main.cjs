@@ -1,26 +1,35 @@
-// Electron entry point – starts the Express server in-process and opens a window.
+// Electron entry point – starts the Express server as a child process and
+// opens a window pointing at it. Designed to work both in dev and packaged.
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { spawn } = require('child_process');
 
 let mainWindow;
 let serverProcess;
+let serverLog = '';
 
 const SERVER_PORT = 3001;
 
+// Resolve a bundled file robustly across dev and packaged (asar on/off) layouts.
 function getResourcePath(rel) {
-  // In a packaged app, files live under resources/app; in dev they're at repo root
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'app', rel);
+  const candidates = [
+    path.join(process.resourcesPath || '', 'app', rel),         // packaged, asar:false -> resources/app/...
+    path.join(__dirname, '..', rel),                            // dev, and packaged asar:false (__dirname=resources/app/electron)
+    path.join(process.resourcesPath || '', 'app.asar', rel),    // packaged, asar:true
+  ];
+  for (const c of candidates) {
+    try { if (fs.existsSync(c)) return c; } catch {}
   }
-  return path.join(__dirname, '..', rel);
+  return candidates[0];
 }
 
 function startServer() {
   const serverFile = getResourcePath('server/index.js');
-  // Writable data dir (history, config, review) – outside the read-only asar
   const userDataDir = path.join(app.getPath('userData'), 'data');
-  // Use Node bundled with Electron via fork-style spawn of the same exe
+  serverLog += `[main] starting server: ${serverFile}\n`;
+  serverLog += `[main] data dir: ${userDataDir}\n`;
+
   serverProcess = spawn(process.execPath, [serverFile], {
     env: {
       ...process.env,
@@ -30,18 +39,17 @@ function startServer() {
     },
     stdio: 'pipe',
   });
-  serverProcess.stdout?.on('data', d => console.log('[server]', d.toString().trim()));
-  serverProcess.stderr?.on('data', d => console.error('[server]', d.toString().trim()));
-  serverProcess.on('exit', code => console.log('[server] exited with code', code));
+  serverProcess.stdout?.on('data', d => { const s = d.toString(); serverLog += '[server] ' + s; console.log('[server]', s.trim()); });
+  serverProcess.stderr?.on('data', d => { const s = d.toString(); serverLog += '[server:err] ' + s; console.error('[server]', s.trim()); });
+  serverProcess.on('error', err => { serverLog += '[server:spawn-error] ' + err.message + '\n'; });
+  serverProcess.on('exit', code => { serverLog += `[server] exited with code ${code}\n`; console.log('[server] exited', code); });
 }
 
-function waitForServer(retries = 30) {
+function waitForServer(retries = 50) {
   return new Promise(resolve => {
     const http = require('http');
     const tryOnce = (n) => {
-      const req = http.get(`http://localhost:${SERVER_PORT}/`, () => {
-        resolve(true);
-      });
+      const req = http.get(`http://localhost:${SERVER_PORT}/`, () => resolve(true));
       req.on('error', () => {
         if (n <= 0) return resolve(false);
         setTimeout(() => tryOnce(n - 1), 200);
@@ -50,6 +58,26 @@ function waitForServer(retries = 30) {
     };
     tryOnce(retries);
   });
+}
+
+function loadingHtml() {
+  return `data:text/html;charset=utf-8,${encodeURIComponent(`
+    <html dir="rtl"><body style="font-family:Arial;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;height:100vh;margin:0;display:flex;align-items:center;justify-content:center;flex-direction:column">
+      <div style="font-size:64px">⭐</div>
+      <h2>KidsLearn נטען...</h2>
+      <p style="opacity:.8">מתחיל את השרת</p>
+    </body></html>`)}`;
+}
+
+function errorHtml() {
+  const log = serverLog.replace(/</g, '&lt;');
+  return `data:text/html;charset=utf-8,${encodeURIComponent(`
+    <html dir="rtl"><body style="font-family:Arial;padding:30px;background:#fff5f5;color:#333">
+      <h2 style="color:#c62828">⚠️ KidsLearn לא הצליח להתחיל את השרת</h2>
+      <p>אנא צלמו את המסך הזה ושלחו לתמיכה. פרטים טכניים:</p>
+      <pre style="background:#1e1e2e;color:#a6e3a1;padding:16px;border-radius:8px;direction:ltr;text-align:left;white-space:pre-wrap;font-size:12px;max-height:60vh;overflow:auto">${log}</pre>
+      <button onclick="location.reload()" style="padding:12px 24px;font-size:16px;border:none;border-radius:8px;background:#5c6bc0;color:#fff;cursor:pointer">נסה שוב</button>
+    </body></html>`)}`;
 }
 
 async function createWindow() {
@@ -61,21 +89,21 @@ async function createWindow() {
     title: 'KidsLearn',
     icon: getResourcePath('kidslearn.ico'),
     autoHideMenuBar: true,
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
+    webPreferences: { contextIsolation: true, nodeIntegration: false },
   });
-
-  // Hide the menu bar completely
   Menu.setApplicationMenu(null);
 
-  await waitForServer();
-  mainWindow.loadURL(`http://localhost:${SERVER_PORT}/`);
+  // Show a loading screen immediately so the window is never blank.
+  mainWindow.loadURL(loadingHtml());
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
+  const ok = await waitForServer();
+  if (ok) {
+    mainWindow.loadURL(`http://localhost:${SERVER_PORT}/`);
+  } else {
+    mainWindow.loadURL(errorHtml());
+  }
+
+  mainWindow.on('closed', () => { mainWindow = null; });
 }
 
 app.whenReady().then(() => {
@@ -84,14 +112,10 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (serverProcess) {
-    try { serverProcess.kill(); } catch {}
-  }
+  if (serverProcess) { try { serverProcess.kill(); } catch {} }
   if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('before-quit', () => {
-  if (serverProcess) {
-    try { serverProcess.kill(); } catch {}
-  }
+  if (serverProcess) { try { serverProcess.kill(); } catch {} }
 });

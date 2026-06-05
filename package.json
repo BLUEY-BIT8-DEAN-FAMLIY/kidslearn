@@ -1,7 +1,7 @@
 {
   "name": "kidslearn",
   "productName": "KidsLearn",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "אפליקציית לימוד יומית לדין וליה",
   "main": "electron/main.cjs",
   "private": true,
@@ -95,6 +95,6 @@
       "category": "Education",
       "maintainer": "deanavraham-bit"
     },
-    "asar": true
+    "asar": false
   }
 }
