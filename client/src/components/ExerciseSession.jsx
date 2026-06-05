@@ -17,7 +17,10 @@ function answerSpeech(ex) {
   return String(ex.answer || '');
 }
 
-export default function ExerciseSession({ child, childName, onBack }) {
+export default function ExerciseSession({ child, childName, subject, onBack }) {
+  // Behaviour keys off the subject (Hebrew = voice + letter keyboard).
+  // Fall back to the original son/daughter mapping for safety.
+  const isHebrew = subject ? subject === 'hebrew' : child === 'daughter';
   const [exercises, setExercises] = useState([]);
   const [current, setCurrent] = useState(0);
   const [results, setResults] = useState([]);
@@ -72,12 +75,12 @@ export default function ExerciseSession({ child, childName, onBack }) {
 
     if (correct) {
       setFeedback('correct');
-      // Speak the answer + a random cheer for the daughter (Hebrew exercises)
-      if (child === 'daughter') {
+      // Speak the answer + a random cheer for Hebrew exercises
+      if (isHebrew) {
         speakCelebration(answerSpeech(ex));
       }
-      // Give a bit more time for daughter so the audio celebration can play
-      const delay = child === 'daughter' ? 1700 : 900;
+      // Give a bit more time for Hebrew so the audio celebration can play
+      const delay = isHebrew ? 1700 : 900;
       setTimeout(() => {
         setFeedback(null);
         const result = buildResult(ex, true, newAttempts);
@@ -89,7 +92,7 @@ export default function ExerciseSession({ child, childName, onBack }) {
       setFeedback('wrong');
 
       // Voice encouragement on wrong answer (only on first mistake to avoid noise)
-      if (child === 'daughter' && newAttempts === 1) {
+      if (isHebrew && newAttempts === 1) {
         speakEncouragement();
       }
 
@@ -157,6 +160,7 @@ export default function ExerciseSession({ child, childName, onBack }) {
       <ExerciseCard
         exercise={ex}
         child={child}
+        subject={subject}
         onAnswer={handleAnswer}
         feedback={feedback}
         showHint={showHint}

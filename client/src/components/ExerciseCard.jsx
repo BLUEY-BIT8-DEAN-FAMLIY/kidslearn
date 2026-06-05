@@ -12,6 +12,16 @@ const TYPE_LABELS = {
   complete_20: '🔵 השלמה ל-20',
   compare: '⚖️ השוואת מספרים',
   sequence: '🔢 רצף מספרים',
+  tens_in_number: '🔟 כמה עשרות',
+  ones_in_number: '☝️ כמה אחדות',
+  build_tens_ones: '🧱 בניית מספר',
+  expanded_form: '🧩 פירוק מספר',
+  hundreds_in_number: '💯 כמה מאות',
+  build_hundreds: '🏗️ בניית מספר תלת-ספרתי',
+  expanded_form_3: '🧩 פירוק מאות',
+  skip_count: '🐰 דילוגים קדימה',
+  skip_count_back: '🐢 דילוגים אחורה',
+  skip_count_100: '💯 דילוגים ב-100',
   word_add: '📖 בעיה – חיבור',
   word_sub: '📖 בעיה – חיסור',
   geo_sides: '🔺 גאומטריה – צלעות',
@@ -33,21 +43,26 @@ const TYPE_LABELS = {
 // Hebrew exercise types that need typing input (-> show virtual keyboard)
 const HEBREW_TYPING_TYPES = ['type_letter', 'fill_letter', 'first_letter_of_word'];
 
-export default function ExerciseCard({ exercise: ex, child, onAnswer, feedback, showHint, attempts, maxAttempts }) {
+export default function ExerciseCard({ exercise: ex, child, subject, onAnswer, feedback, showHint, attempts, maxAttempts }) {
   const [input, setInput] = useState('');
   const [selected, setSelected] = useState(null);
+
+  // Behaviour keys off subject (Hebrew = read aloud + letter keyboard).
+  // Fall back to the original son/daughter mapping for safety.
+  const isHebrew = subject ? subject === 'hebrew' : child === 'daughter';
+  const isMath = subject ? subject === 'math' : child === 'son';
 
   useEffect(() => {
     setInput('');
     setSelected(null);
-    // Auto-read Hebrew questions aloud for the daughter.
+    // Auto-read Hebrew questions aloud.
     // Prefer audioText (which includes the full word for completion exercises)
     // so the child knows what word they're trying to spell.
-    if (child === 'daughter' && ex && (ex.audioText || ex.question)) {
+    if (isHebrew && ex && (ex.audioText || ex.question)) {
       const t = setTimeout(() => speakHebrew(ex.audioText || ex.question), 300);
       return () => clearTimeout(t);
     }
-  }, [ex.id, child]);
+  }, [ex.id, isHebrew]);
 
   function submitInput(value) {
     const v = (value !== undefined ? value : input).toString().trim();
@@ -73,7 +88,7 @@ export default function ExerciseCard({ exercise: ex, child, onAnswer, feedback, 
   const isFindLetter = ex.type === 'find_letter' || ex.type === 'odd_one_out';
   const isCountLetter = ex.type === 'count_letter';
   const isUnscramble = ex.type === 'unscramble';
-  const isHebrewTyping = child === 'daughter' && HEBREW_TYPING_TYPES.includes(ex.type);
+  const isHebrewTyping = isHebrew && HEBREW_TYPING_TYPES.includes(ex.type);
 
   const cardClass = ['exercise-card', feedback ? `feedback-${feedback}` : ''].filter(Boolean).join(' ');
 
@@ -88,7 +103,7 @@ export default function ExerciseCard({ exercise: ex, child, onAnswer, feedback, 
 
       <div className="ex-question-row">
         <div className="ex-question" dir={ex.dir || 'rtl'}>{ex.question}</div>
-        {child === 'daughter' && (
+        {isHebrew && (
           <button
             type="button"
             className="tts-btn"
@@ -182,11 +197,11 @@ export default function ExerciseCard({ exercise: ex, child, onAnswer, feedback, 
       {!isHebrewTyping && !isMultiChoice && !isFindLetter && !isCountLetter && (
         <div className="input-row">
           <input
-            type={child === 'son' && ex.type !== 'compare' ? 'number' : 'text'}
+            type={isMath && ex.type !== 'compare' ? 'number' : 'text'}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && submitInput()}
-            placeholder={child === 'son' ? 'כתוב את התשובה' : 'כתוב את האות'}
+            placeholder={isMath ? 'כתוב את התשובה' : 'כתוב את האות'}
             disabled={!!feedback}
             maxLength={5}
             autoFocus

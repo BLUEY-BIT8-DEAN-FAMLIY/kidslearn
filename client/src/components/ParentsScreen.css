@@ -72,6 +72,18 @@
 
 .tab-photo.tab-photo-daughter { border-color: #e91e8c; }
 
+.tab-emoji {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  background: #eef0ff;
+  border: 2px solid #c5cae9;
+}
+
 .child-tabs .tab.active {
   background: #fff;
   color: var(--purple);

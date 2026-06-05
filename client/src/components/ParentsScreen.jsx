@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchStats, fetchHistory } from '../api';
+import { fetchStats, fetchHistory, fetchChildren } from '../api';
 import EmailSettings from './EmailSettings';
 import './ParentsScreen.css';
 
@@ -14,6 +14,16 @@ const TYPE_LABELS = {
   complete_20: 'השלמה ל-20',
   compare: 'השוואת מספרים',
   sequence: 'רצף מספרים',
+  tens_in_number: 'כמה עשרות',
+  ones_in_number: 'כמה אחדות',
+  build_tens_ones: 'בניית מספר – עשרות ואחדות',
+  expanded_form: 'פירוק לעשרות ואחדות',
+  hundreds_in_number: 'כמה מאות',
+  build_hundreds: 'בניית מספר תלת-ספרתי',
+  expanded_form_3: 'פירוק מאות, עשרות ואחדות',
+  skip_count: 'דילוגים – עולה',
+  skip_count_back: 'דילוגים – יורד',
+  skip_count_100: 'דילוגים ב-100',
   word_add: 'בעיה מילולית – חיבור',
   word_sub: 'בעיה מילולית – חיסור',
   geo_sides: 'גאומטריה – צלעות',
@@ -33,11 +43,24 @@ const TYPE_LABELS = {
 };
 
 export default function ParentsScreen({ onBack }) {
+  const [children, setChildren] = useState([]);
   const [activeChild, setActiveChild] = useState('son');
   const [stats, setStats] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedSession, setExpandedSession] = useState(null);
+
+  useEffect(() => {
+    fetchChildren()
+      .then(data => {
+        const list = data.children || [];
+        setChildren(list);
+        if (list.length && !list.some(c => c.id === activeChild)) {
+          setActiveChild(list[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -50,7 +73,8 @@ export default function ParentsScreen({ onBack }) {
       .catch(() => setLoading(false));
   }, [activeChild]);
 
-  const childName = activeChild === 'son' ? 'דין' : 'ליה';
+  const activeProfile = children.find(c => c.id === activeChild);
+  const childName = activeProfile ? activeProfile.name : (activeChild === 'son' ? 'דין' : 'ליה');
 
   // Sort by-type stats by weakness (most wrong first)
   const sortedTypes = stats
@@ -70,18 +94,18 @@ export default function ParentsScreen({ onBack }) {
       </div>
 
       <div className="child-tabs">
-        <button
-          className={`tab ${activeChild === 'son' ? 'active' : ''}`}
-          onClick={() => setActiveChild('son')}
-        >
-          <img src="/dean.png" alt="" className="tab-photo" /> דין
-        </button>
-        <button
-          className={`tab ${activeChild === 'daughter' ? 'active' : ''}`}
-          onClick={() => setActiveChild('daughter')}
-        >
-          <img src="/liya.png" alt="" className="tab-photo tab-photo-daughter" /> ליה
-        </button>
+        {children.map(c => (
+          <button
+            key={c.id}
+            className={`tab ${activeChild === c.id ? 'active' : ''}`}
+            onClick={() => setActiveChild(c.id)}
+          >
+            {c.photo
+              ? <img src={c.photo} alt="" className={`tab-photo ${c.subject === 'hebrew' ? 'tab-photo-daughter' : ''}`} />
+              : <span className="tab-emoji">{c.gender === 'girl' ? '👧' : '👦'}</span>}
+            {c.name}
+          </button>
+        ))}
       </div>
 
       {loading && <div className="loading">טוען...</div>}

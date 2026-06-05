@@ -10,6 +10,13 @@ const BUNDLED_DATA_DIR = path.join(__dirname, 'data');
 const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const REVIEW_FILE = path.join(DATA_DIR, 'review.json');
+const CHILDREN_FILE = path.join(DATA_DIR, 'children.json');
+
+// The two original children ship with the app. New ones are added by parents.
+const DEFAULT_CHILDREN = [
+  { id: 'son', name: 'דין', gender: 'boy', subject: 'math', photo: '/dean.png', builtin: true },
+  { id: 'daughter', name: 'ליה', gender: 'girl', subject: 'hebrew', photo: '/liya.png', builtin: true },
+];
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -30,6 +37,56 @@ function ensureDataDir() {
   if (!fs.existsSync(REVIEW_FILE)) {
     fs.writeFileSync(REVIEW_FILE, JSON.stringify({ son: [], daughter: [] }, null, 2));
   }
+  if (!fs.existsSync(CHILDREN_FILE)) {
+    fs.writeFileSync(CHILDREN_FILE, JSON.stringify(DEFAULT_CHILDREN, null, 2));
+  }
+}
+
+// === CHILDREN ===
+export function readChildren() {
+  ensureDataDir();
+  try {
+    const list = JSON.parse(fs.readFileSync(CHILDREN_FILE, 'utf8'));
+    return Array.isArray(list) && list.length ? list : [...DEFAULT_CHILDREN];
+  } catch {
+    return [...DEFAULT_CHILDREN];
+  }
+}
+
+export function writeChildren(list) {
+  ensureDataDir();
+  fs.writeFileSync(CHILDREN_FILE, JSON.stringify(list, null, 2));
+}
+
+export function getChild(id) {
+  return readChildren().find(c => c.id === id) || null;
+}
+
+/** Add a new child. `seq` makes the id unique without relying on Date.now(). */
+export function addChild({ name, gender, subject, photo }) {
+  const list = readChildren();
+  const base = 'kid';
+  let n = 1;
+  while (list.some(c => c.id === `${base}_${n}`)) n++;
+  const child = {
+    id: `${base}_${n}`,
+    name: String(name || '').trim() || 'ילד/ה',
+    gender: gender === 'girl' ? 'girl' : 'boy',
+    subject: subject === 'hebrew' ? 'hebrew' : 'math',
+    photo: photo || '',
+    builtin: false,
+  };
+  list.push(child);
+  writeChildren(list);
+  return child;
+}
+
+export function deleteChild(id) {
+  const list = readChildren();
+  const child = list.find(c => c.id === id);
+  if (!child || child.builtin) return false; // don't delete the two built-ins
+  writeChildren(list.filter(c => c.id !== id));
+  return true;
 }
 
 // === HISTORY ===

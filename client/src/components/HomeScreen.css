@@ -78,11 +78,72 @@
   box-shadow: 0 4px 12px rgba(92,107,192,0.3);
 }
 
-.child-photo.daughter-photo {
+.child-card.daughter .child-photo {
   border-color: #e91e8c;
   background: linear-gradient(135deg, #fce4ec, #fff0f5);
   box-shadow: 0 4px 12px rgba(233,30,140,0.3);
 }
+
+/* Add-child card */
+.add-card {
+  border: 3px dashed #c5cae9 !important;
+  border-top: 3px dashed #c5cae9 !important;
+  background: rgba(255,255,255,0.7);
+  justify-content: center;
+  cursor: pointer;
+}
+.add-card:hover { border-color: #5c6bc0 !important; background: #fff; }
+.add-plus {
+  font-size: 3.6rem;
+  color: #9fa8da;
+  line-height: 1;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 300;
+}
+
+/* Delete (edit mode) */
+.card-delete {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 28px;
+  height: 28px;
+  background: #e53935;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  z-index: 2;
+}
+.card-delete:hover { background: #c62828; }
+.child-card { position: relative; }
+
+.home-loading { color: #fff; font-size: 1.1rem; padding: 30px; }
+
+.home-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.edit-btn {
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: 2px solid rgba(255,255,255,0.3);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.edit-btn:hover { background: rgba(255,255,255,0.3); }
 
 .child-name {
   font-size: 1.6rem;

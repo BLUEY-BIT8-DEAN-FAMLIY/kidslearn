@@ -9,13 +9,15 @@ import { generateHebrewExercises } from './exercises/hebrewGenerator.js';
 import {
   saveSession, computeWeakness, getStats, readHistory, readConfig, writeConfig,
   popReviewQueue, addWrongToReviewQueue,
+  readChildren, getChild, addChild, deleteChild,
 } from './storage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+// Allow larger bodies so child photos (base64 data URLs) fit comfortably
+app.use(express.json({ limit: '8mb' }));
 
 // Serve the built React app from client/dist when running as a packaged app
 const distPath = path.resolve(__dirname, '..', 'client', 'dist');
@@ -37,6 +39,16 @@ const TYPE_LABELS = {
   complete_20: 'השלמה ל-20',
   compare: 'השוואת מספרים',
   sequence: 'רצף מספרים',
+  tens_in_number: 'כמה עשרות',
+  ones_in_number: 'כמה אחדות',
+  build_tens_ones: 'בניית מספר – עשרות ואחדות',
+  expanded_form: 'פירוק לעשרות ואחדות',
+  hundreds_in_number: 'כמה מאות',
+  build_hundreds: 'בניית מספר תלת-ספרתי',
+  expanded_form_3: 'פירוק מאות, עשרות ואחדות',
+  skip_count: 'דילוגים – עולה',
+  skip_count_back: 'דילוגים – יורד',
+  skip_count_100: 'דילוגים ב-100',
   word_add: 'בעיה מילולית – חיבור',
   word_sub: 'בעיה מילולית – חיסור',
   geo_sides: 'גאומטריה – צלעות',
@@ -58,16 +70,36 @@ const TYPE_LABELS = {
 app.get('/api/exercises/:child', (req, res) => {
   const { child } = req.params;
   const date = req.query.date || new Date().toISOString().slice(0, 10);
+  const profile = getChild(child);
+  if (!profile) return res.status(404).json({ error: 'Unknown child' });
+
   const weakness = computeWeakness(child);
   const reviewExercises = popReviewQueue(child, 3);
+  const exercises = profile.subject === 'hebrew'
+    ? generateHebrewExercises(weakness, reviewExercises)
+    : generateMathExercises(weakness, reviewExercises);
 
-  if (child === 'son') {
-    return res.json({ child, date, exercises: generateMathExercises(weakness, reviewExercises), weakness });
-  }
-  if (child === 'daughter') {
-    return res.json({ child, date, exercises: generateHebrewExercises(weakness, reviewExercises), weakness });
-  }
-  return res.status(400).json({ error: 'Unknown child' });
+  return res.json({ child, subject: profile.subject, date, exercises, weakness });
+});
+
+// ── Children (profiles) ───────────────────────────────────────────────────
+app.get('/api/children', (req, res) => {
+  res.json({ children: readChildren() });
+});
+
+app.post('/api/children', (req, res) => {
+  const { name, gender, subject, photo } = req.body || {};
+  if (!name || !String(name).trim()) return res.status(400).json({ error: 'חסר שם' });
+  // Reject oversized photos (defensive – client already downscales)
+  if (photo && photo.length > 6_000_000) return res.status(413).json({ error: 'התמונה גדולה מדי' });
+  const child = addChild({ name, gender, subject, photo });
+  res.json({ ok: true, child });
+});
+
+app.delete('/api/children/:id', (req, res) => {
+  const ok = deleteChild(req.params.id);
+  if (!ok) return res.status(400).json({ error: 'לא ניתן למחוק את הילד הזה' });
+  res.json({ ok: true });
 });
 
 app.post('/api/save-session', async (req, res) => {

@@ -12,6 +12,7 @@ export default function App() {
       <ExerciseSession
         child={view.child}
         childName={view.childName}
+        subject={view.subject}
         onBack={() => setView({ name: 'home' })}
       />
     );
@@ -23,7 +24,7 @@ export default function App() {
 
   return (
     <HomeScreen
-      onSelect={(child, childName) => setView({ name: 'session', child, childName })}
+      onSelect={(child, childName, subject) => setView({ name: 'session', child, childName, subject })}
       onParents={() => setView({ name: 'parents' })}
     />
   );

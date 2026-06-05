@@ -28,6 +28,30 @@ export async function fetchHistory(child) {
   return res.json();
 }
 
+export async function fetchChildren() {
+  const res = await fetch(`${BASE}/children`);
+  if (!res.ok) throw new Error('Failed to fetch children');
+  return res.json();
+}
+
+export async function addChild(payload) {
+  const res = await fetch(`${BASE}/children`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to add child');
+  return data;
+}
+
+export async function deleteChild(id) {
+  const res = await fetch(`${BASE}/children/${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to delete child');
+  return data;
+}
+
 export async function fetchEmailConfig() {
   const res = await fetch(`${BASE}/config/email`);
   if (!res.ok) throw new Error('Failed to fetch email config');

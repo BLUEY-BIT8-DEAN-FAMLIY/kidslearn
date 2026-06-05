@@ -1,6 +1,42 @@
+import { useState, useEffect } from 'react';
+import { fetchChildren, deleteChild } from '../api';
+import AddChildModal from './AddChildModal';
 import './HomeScreen.css';
 
+const SUBJECT_DESC = {
+  math: { desc: 'חשבון', tag: 'תרגילי חשבון' },
+  hebrew: { desc: 'עברית', tag: 'תרגילי אותיות' },
+};
+
 export default function HomeScreen({ onSelect, onParents }) {
+  const [children, setChildren] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+
+  function load() {
+    fetchChildren()
+      .then(data => { setChildren(data.children || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }
+  useEffect(load, []);
+
+  async function handleDelete(e, child) {
+    e.stopPropagation();
+    if (!window.confirm(`למחוק את ${child.name}? (ההיסטוריה תישאר)`)) return;
+    try {
+      await deleteChild(child.id);
+      setChildren(cs => cs.filter(c => c.id !== child.id));
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  function photoFor(child) {
+    if (child.photo) return <img src={child.photo} alt={child.name} className="child-photo" />;
+    return <div className="child-photo child-emoji">{child.gender === 'girl' ? '👧' : '👦'}</div>;
+  }
+
   return (
     <div className="home">
       <div className="home-title">
@@ -10,29 +46,56 @@ export default function HomeScreen({ onSelect, onParents }) {
       </div>
 
       <div className="home-cards">
-        <button className="child-card son" onClick={() => onSelect('son', 'דין')}>
-          <img src="/dean.png" alt="דין" className="child-photo" />
-          <div className="child-name">דין</div>
-          <div className="child-desc">כיתה א' – חשבון</div>
-          <div className="child-tag">20 תרגילי חיבור וחיסור עד 30</div>
-        </button>
+        {loading && <div className="home-loading">טוען...</div>}
 
-        <button className="child-card daughter" onClick={() => onSelect('daughter', 'ליה')}>
-          <img src="/liya.png" alt="ליה" className="child-photo daughter-photo" />
-          <div className="child-name">ליה</div>
-          <div className="child-desc">גן חובה – עברית</div>
-          <div className="child-tag">11 תרגילי אותיות</div>
-        </button>
+        {!loading && children.map(child => {
+          const info = SUBJECT_DESC[child.subject] || SUBJECT_DESC.math;
+          return (
+            <button
+              key={child.id}
+              className={`child-card ${child.subject === 'hebrew' ? 'daughter' : 'son'}`}
+              onClick={() => !editMode && onSelect(child.id, child.name, child.subject)}
+            >
+              {editMode && !child.builtin && (
+                <span className="card-delete" onClick={e => handleDelete(e, child)}>✕</span>
+              )}
+              {photoFor(child)}
+              <div className="child-name">{child.name}</div>
+              <div className="child-desc">{info.desc}</div>
+              <div className="child-tag">{info.tag}</div>
+            </button>
+          );
+        })}
+
+        {!loading && (
+          <button className="child-card add-card" onClick={() => setShowAdd(true)}>
+            <div className="add-plus">＋</div>
+            <div className="child-name">הוסף ילד/ה</div>
+            <div className="child-tag">שם · תמונה · בן/בת</div>
+          </button>
+        )}
       </div>
 
       <div className="home-bottom">
         <div className="home-date">
           📅 {new Date().toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </div>
-        <button className="parents-btn" onClick={onParents}>
-          👨‍👩‍👧 אזור הורים
-        </button>
+        <div className="home-actions">
+          <button className="edit-btn" onClick={() => setEditMode(m => !m)}>
+            {editMode ? '✓ סיום' : '✏️ עריכה'}
+          </button>
+          <button className="parents-btn" onClick={onParents}>
+            👨‍👩‍👧 אזור הורים
+          </button>
+        </div>
       </div>
+
+      {showAdd && (
+        <AddChildModal
+          onClose={() => setShowAdd(false)}
+          onAdded={(child) => { setShowAdd(false); setChildren(cs => [...cs, child]); }}
+        />
+      )}
     </div>
   );
 }
