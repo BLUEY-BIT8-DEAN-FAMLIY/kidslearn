@@ -30,8 +30,19 @@
   .tagline{font-size:1.25rem;color:#666;margin-bottom:6px}
   .sub{color:#999;font-size:.95rem}
 
+  .play-web{text-align:center;margin:30px 0 18px}
+  .btn-web{
+    display:inline-flex;align-items:center;gap:10px;
+    background:linear-gradient(135deg,var(--purple),var(--purple-dark));color:#fff;
+    font-size:1.45rem;font-weight:800;text-decoration:none;
+    padding:20px 44px;border-radius:18px;
+    box-shadow:0 10px 30px rgba(102,126,234,.45);transition:transform .15s, box-shadow .15s;
+  }
+  .btn-web:hover{transform:translateY(-2px);box-shadow:0 14px 38px rgba(102,126,234,.55)}
+  .play-web-hint{margin-top:12px;font-size:.9rem;color:#888}
+
   .detected{
-    background:#fff;border-radius:20px;padding:28px;margin:30px 0;
+    background:#fff;border-radius:20px;padding:28px;margin:18px 0 30px;
     box-shadow:0 8px 30px rgba(0,0,0,.08);text-align:center;
     border:2px solid #eee;
   }
@@ -90,9 +101,15 @@
     <p class="sub">חשבון · גאומטריה · עברית — עם דוחות יומיים להורים 📧</p>
   </header>
 
+  <!-- Play in browser (web version) -->
+  <div class="play-web">
+    <a class="btn-web" href="./app/">▶️ שחק עכשיו בדפדפן — בלי התקנה</a>
+    <div class="play-web-hint">גרסת ווב מלאה · עובד גם בטלפון · ההתקדמות נשמרת במכשיר</div>
+  </div>
+
   <!-- Auto-detected OS download -->
   <div class="detected">
-    <div class="os-name">המערכת שזיהינו: <b id="osLabel">…</b></div>
+    <div class="os-name">או הורד למחשב — המערכת שזיהינו: <b id="osLabel">…</b></div>
     <a id="mainDownload" class="btn-primary" href="#all">⬇️ הורד עכשיו</a>
     <div class="hint" id="mainHint"></div>
   </div>

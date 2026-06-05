@@ -45,11 +45,19 @@ export function stopSpeech() {
   }
 }
 
+const WEB = import.meta.env.VITE_TARGET === 'web';
+
 export function speakHebrew(text) {
   const cleaned = cleanForSpeech(text);
   if (!cleaned) return;
 
   stopSpeech();
+
+  // The static web version has no server TTS proxy – use the browser voice.
+  if (WEB) {
+    speakViaWebAPI(text);
+    return;
+  }
 
   const url = `/api/tts?text=${encodeURIComponent(cleaned)}`;
   const audio = new Audio(url);

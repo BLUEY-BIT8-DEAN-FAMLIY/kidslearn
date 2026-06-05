@@ -33,8 +33,18 @@ export default function HomeScreen({ onSelect, onParents }) {
   }
 
   function photoFor(child) {
-    if (child.photo) return <img src={child.photo} alt={child.name} className="child-photo" />;
-    return <div className="child-photo child-emoji">{child.gender === 'girl' ? '👧' : '👦'}</div>;
+    const emoji = child.gender === 'girl' ? '👧' : '👦';
+    if (child.photo) {
+      return (
+        <img
+          src={child.photo}
+          alt={child.name}
+          className="child-photo"
+          onError={e => { e.target.outerHTML = `<div class="child-photo child-emoji">${emoji}</div>`; }}
+        />
+      );
+    }
+    return <div className="child-photo child-emoji">{emoji}</div>;
   }
 
   return (

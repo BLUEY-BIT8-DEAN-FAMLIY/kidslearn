@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchStats, fetchHistory, fetchChildren } from '../api';
+import { fetchStats, fetchHistory, fetchChildren, IS_WEB } from '../api';
 import EmailSettings from './EmailSettings';
 import './ParentsScreen.css';
 
@@ -172,9 +172,11 @@ export default function ParentsScreen({ onBack }) {
             </div>
           )}
 
-          <div className="section">
-            <EmailSettings />
-          </div>
+          {!IS_WEB && (
+            <div className="section">
+              <EmailSettings />
+            </div>
+          )}
 
           <div className="section">
             <h2>📚 היסטוריית מפגשים ({history.length})</h2>
