@@ -60,7 +60,7 @@ export async function addChild({ name, gender, subject, avatar, photo }) {
 export async function deleteChild(id) {
   const list = readChildren();
   const child = list.find(c => c.id === id);
-  if (!child || child.builtin) throw new Error('לא ניתן למחוק את הילד הזה');
+  if (!child) throw new Error('הילד לא נמצא');
   write(K.children, list.filter(c => c.id !== id));
   return { ok: true };
 }

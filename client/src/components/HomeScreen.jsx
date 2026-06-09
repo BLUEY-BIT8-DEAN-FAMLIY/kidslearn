@@ -67,7 +67,7 @@ export default function HomeScreen({ onSelect, onParents }) {
               className={`child-card ${child.subject === 'hebrew' ? 'daughter' : 'son'}`}
               onClick={() => !editMode && onSelect(child.id, child.name, child.subject)}
             >
-              {editMode && !child.builtin && (
+              {editMode && (
                 <span className="card-delete" onClick={e => handleDelete(e, child)}>✕</span>
               )}
               {photoFor(child)}

@@ -82,7 +82,7 @@ export function addChild({ name, gender, subject, avatar, photo }) {
 export function deleteChild(id) {
   const list = readChildren();
   const child = list.find(c => c.id === id);
-  if (!child || child.builtin) return false; // don't delete the two built-ins
+  if (!child) return false;
   writeChildren(list.filter(c => c.id !== id));
   return true;
 }
