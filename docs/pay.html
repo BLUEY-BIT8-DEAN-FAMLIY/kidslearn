@@ -64,10 +64,15 @@
       <span>Visa</span><span>Mastercard</span><span>PayPal</span><span>Apple Pay</span><span>Google Pay</span>
     </div>
 
-    <div class="setup-note" id="setup-note">
-      ⚙️ <b>למפעיל:</b> כדי להפעיל גבייה אמיתית, חברו חשבון ספק תשלומים (Stripe / Paddle / Lemon Squeezy)
-      והחליפו את קישור הכפתור בקישור הצ'ק-אאוט שלהם.
-    </div>
+    <!--
+      FOR THE OPERATOR (not shown to customers):
+      To enable real charging, set the pay button's href to your payment
+      provider checkout link. Easiest options for an individual:
+        • PayPal.me / Ko-fi  – one-off payments, ~2 min setup
+        • Lemon Squeezy / Paddle – real subscriptions, handles VAT/tax
+      Then in the script below set: document.getElementById('pay').href = 'YOUR_LINK'
+      and remove the click handler that shows the alert.
+    -->
 
     <a class="back" href="./pricing.html">‹ חזרה לתוכניות</a>
   </div>
@@ -88,12 +93,17 @@
   document.getElementById('region-name').textContent = PRICES[region].label;
   document.getElementById('total').textContent = '$' + price + ' ' + period;
 
-  // Placeholder: point this at your payment provider's checkout link once connected.
-  // e.g. document.getElementById('pay').href = 'https://buy.stripe.com/your-link';
-  document.getElementById('pay').addEventListener('click', function(e){
-    e.preventDefault();
-    alert('כדי להשלים תשלום צריך לחבר ספק תשלומים (Stripe/Paddle).\nאחרי החיבור, הכפתור יוביל לצ׳ק-אאוט המאובטח.');
-  });
+  // OPERATOR: replace PAY_LINK with your provider checkout URL to go live.
+  var PAY_LINK = '';
+  var payBtn = document.getElementById('pay');
+  if (PAY_LINK) {
+    payBtn.href = PAY_LINK;
+  } else {
+    payBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      alert('המנוי ייפתח לתשלום ממש בקרוב 🙂 תודה על הסבלנות!');
+    });
+  }
 </script>
 </body>
 </html>
