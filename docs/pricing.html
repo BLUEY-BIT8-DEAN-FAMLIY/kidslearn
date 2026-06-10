@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KidsLearn — תוכניות מנוי</title>
+<link rel="icon" href="https://raw.githubusercontent.com/deanavraham-bit/kidslearn/main/build/icon.png">
+<style>
+  :root{ --purple:#667eea; --purple-dark:#764ba2; --green:#43a047; --ink:#2d2d44; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:var(--ink);
+    background:linear-gradient(160deg,#f3f0ff 0%,#fef6ff 100%);min-height:100vh}
+  .wrap{max-width:880px;margin:0 auto;padding:48px 20px 60px}
+  header{text-align:center;margin-bottom:8px}
+  .logo{width:84px;height:84px;border-radius:22px;margin:0 auto 14px;
+    background:linear-gradient(135deg,var(--purple),var(--purple-dark));
+    display:flex;align-items:center;justify-content:center;font-size:48px;
+    box-shadow:0 10px 30px rgba(102,126,234,.4)}
+  h1{font-size:2.3rem;background:linear-gradient(135deg,var(--purple),var(--purple-dark));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .sub{color:#777;font-size:1.05rem;margin-top:6px}
+
+  .placeholder-banner{background:#fff8e6;border:1px solid #ffe08a;border-radius:12px;
+    padding:12px 16px;margin:22px auto;max-width:560px;text-align:center;font-size:.9rem;color:#7a5c00}
+
+  /* Region toggle */
+  .region-toggle{display:flex;gap:8px;justify-content:center;margin:26px 0 8px}
+  .region-toggle button{border:2px solid #e3e8ff;background:#fff;color:#666;
+    font-family:inherit;font-size:1rem;font-weight:700;padding:10px 26px;border-radius:30px;cursor:pointer;transition:all .15s}
+  .region-toggle button.on{border-color:var(--purple);background:var(--purple);color:#fff}
+
+  .plans{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:24px}
+  @media(max-width:600px){.plans{grid-template-columns:1fr}}
+  .plan{background:#fff;border-radius:20px;padding:30px 26px;box-shadow:0 8px 30px rgba(0,0,0,.08);
+    border:2px solid #eee;text-align:center;position:relative}
+  .plan.best{border-color:var(--green);box-shadow:0 12px 36px rgba(67,160,71,.2)}
+  .best-badge{position:absolute;top:-13px;left:50%;transform:translateX(-50%);
+    background:var(--green);color:#fff;font-size:.78rem;font-weight:700;padding:4px 14px;border-radius:20px}
+  .plan h3{font-size:1.25rem;color:var(--purple-dark);margin-bottom:10px}
+  .price{font-size:2.6rem;font-weight:800;color:var(--ink)}
+  .price .cur{font-size:1.3rem;vertical-align:super}
+  .per{color:#999;font-size:.95rem;margin-bottom:4px}
+  .save{color:var(--green);font-weight:700;font-size:.9rem;margin:8px 0 16px;min-height:20px}
+  .plan ul{list-style:none;text-align:right;margin:16px 0 22px;display:flex;flex-direction:column;gap:9px}
+  .plan li{font-size:.92rem;color:#555;padding-right:24px;position:relative}
+  .plan li::before{content:'✓';position:absolute;right:0;color:var(--green);font-weight:800}
+  .cta{display:block;width:100%;padding:14px;border:none;border-radius:12px;cursor:pointer;
+    font-family:inherit;font-size:1.05rem;font-weight:700;text-decoration:none;
+    background:linear-gradient(135deg,var(--green),#00acc1);color:#fff}
+  .cta.alt{background:#eef0ff;color:var(--purple-dark)}
+
+  .foot{text-align:center;margin-top:34px}
+  .foot a{color:var(--purple);text-decoration:none;font-weight:600}
+  .reassure{text-align:center;color:#aaa;font-size:.82rem;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">⭐</div>
+    <h1>הצטרפו ל-KidsLearn</h1>
+    <p class="sub">לימוד יומי כיף לילדים — חשבון, גאומטריה ועברית</p>
+  </header>
+
+  <div class="placeholder-banner">
+    ⚠️ <b>מחירים לדוגמה</b> — להחלפה במחירים האמיתיים שלכם.
+  </div>
+
+  <div class="region-toggle">
+    <button id="btn-il" class="on" onclick="setRegion('il')">🇮🇱 ישראל</button>
+    <button id="btn-intl" onclick="setRegion('intl')">🌍 בינלאומי</button>
+  </div>
+
+  <div class="plans">
+    <div class="plan">
+      <h3>חודשי</h3>
+      <div class="price"><span class="cur">$</span><span id="m-price">4.90</span></div>
+      <div class="per">לחודש</div>
+      <div class="save">&nbsp;</div>
+      <ul>
+        <li>גישה מלאה לכל התרגילים</li>
+        <li>מספר ילדים ללא הגבלה</li>
+        <li>מעקב התקדמות</li>
+      </ul>
+      <a class="cta alt" href="#" id="cta-m">בחרו חודשי</a>
+    </div>
+
+    <div class="plan best">
+      <div class="best-badge">הכי משתלם</div>
+      <h3>שנתי</h3>
+      <div class="price"><span class="cur">$</span><span id="y-price">49</span></div>
+      <div class="per">לשנה</div>
+      <div class="save" id="y-save">חיסכון של כ-17%</div>
+      <ul>
+        <li>כל מה שבחודשי</li>
+        <li>2 חודשים מתנה</li>
+        <li>מחיר נעול לשנה</li>
+      </ul>
+      <a class="cta" href="#" id="cta-y">בחרו שנתי</a>
+    </div>
+  </div>
+
+  <div class="foot">
+    <a href="./app/">‹ חזרה לאפליקציה (אפשר גם להמשיך כאורח)</a>
+  </div>
+  <p class="reassure">🔒 תשלום מאובטח · אפשר לבטל בכל עת</p>
+</div>
+
+<script>
+  // Example prices per region. Replace the numbers with the real ones.
+  var PRICES = {
+    il:   { m: '4.90', y: '49',  save: 'חיסכון של כ-17%' },
+    intl: { m: '6.90', y: '69',  save: 'חיסכון של כ-17%' }
+  };
+  function setRegion(r){
+    document.getElementById('btn-il').classList.toggle('on', r==='il');
+    document.getElementById('btn-intl').classList.toggle('on', r==='intl');
+    document.getElementById('m-price').textContent = PRICES[r].m;
+    document.getElementById('y-price').textContent = PRICES[r].y;
+    document.getElementById('y-save').textContent = PRICES[r].save;
+  }
+  setRegion('il');
+</script>
+</body>
+</html>
