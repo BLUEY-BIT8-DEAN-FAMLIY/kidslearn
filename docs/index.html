@@ -107,50 +107,6 @@
     <div class="play-web-hint">גרסת ווב מלאה · עובד גם בטלפון · ההתקדמות נשמרת במכשיר</div>
   </div>
 
-  <!-- Auto-detected OS download -->
-  <div class="detected">
-    <div class="os-name">או הורד למחשב — המערכת שזיהינו: <b id="osLabel">…</b></div>
-    <a id="mainDownload" class="btn-primary" href="#all">⬇️ הורד עכשיו</a>
-    <div class="hint" id="mainHint"></div>
-  </div>
-
-  <!-- All platforms -->
-  <h2 id="all">כל ההורדות</h2>
-  <div class="grid">
-    <div class="card">
-      <h3>🪟 Windows</h3>
-      <p>Windows 10 / 11</p>
-      <a class="dl" data-dl="win" href="https://github.com/deanavraham-bit/kidslearn/releases/latest">מתקין (.exe)</a>
-    </div>
-    <div class="card">
-      <h3>🍎 macOS</h3>
-      <p>בחר לפי סוג המעבד</p>
-      <a class="dl" data-dl="mac-arm" href="https://github.com/deanavraham-bit/kidslearn/releases/latest">Apple Silicon (M1–M4)</a>
-      <a class="dl alt" data-dl="mac-intel" href="https://github.com/deanavraham-bit/kidslearn/releases/latest">Intel (מקים ישנים)</a>
-    </div>
-    <div class="card">
-      <h3>🐧 Linux</h3>
-      <p>כל הפצה / Ubuntu·Debian</p>
-      <a class="dl" data-dl="linux-appimage" href="https://github.com/deanavraham-bit/kidslearn/releases/latest">AppImage (כל הפצה)</a>
-      <a class="dl alt" data-dl="linux-deb" href="https://github.com/deanavraham-bit/kidslearn/releases/latest">.deb (Ubuntu/Debian)</a>
-    </div>
-  </div>
-
-  <!-- One-line install -->
-  <h2>התקנה בפקודה אחת</h2>
-
-  <div class="cmd-box">
-    <div class="label">🪟 Windows — PowerShell</div>
-    <button class="copy" onclick="copyCmd(this)">העתק</button>
-    <code>irm https://raw.githubusercontent.com/deanavraham-bit/kidslearn/main/install.ps1 | iex</code>
-  </div>
-
-  <div class="cmd-box">
-    <div class="label">🍎🐧 macOS / Linux — Terminal</div>
-    <button class="copy" onclick="copyCmd(this)">העתק</button>
-    <code>curl -fsSL https://raw.githubusercontent.com/deanavraham-bit/kidslearn/main/install.sh | bash</code>
-  </div>
-
   <!-- Features -->
   <h2>מה יש בפנים?</h2>
   <div class="features">
@@ -158,88 +114,22 @@
     <div class="feat"><div class="ico">🔷</div><div class="t">גאומטריה</div></div>
     <div class="feat"><div class="ico">🔤</div><div class="t">עברית + הקראה</div></div>
     <div class="feat"><div class="ico">🔁</div><div class="t">חזרה על טעויות</div></div>
-    <div class="feat"><div class="ico">📧</div><div class="t">דוח יומי להורים</div></div>
+    <div class="feat"><div class="ico">🎭</div><div class="t">אווטאר לכל ילד</div></div>
     <div class="feat"><div class="ico">📊</div><div class="t">מעקב התקדמות</div></div>
   </div>
 
   <div class="note">
-    <b>הערה על אזהרות אבטחה:</b> האפליקציה לא חתומה דיגיטלית (חתימה עולה כסף).
-    ב-Windows לחצו <b>"More info" → "Run anyway"</b>. ב-Mac לחצו קליק-ימני על האפליקציה → <b>"Open" → "Open"</b>.
-    כל ההגדרות נשמרות מקומית במחשב — אין סודות בקובץ ההתקנה.
+    💜 <b>הכל בדפדפן — בלי התקנה.</b> עובד גם בטלפון ובטאבלט, וההתקדמות נשמרת במכשיר שלכם.
   </div>
 
   <footer>
-    קוד מקור: <a href="https://github.com/deanavraham-bit/kidslearn">github.com/deanavraham-bit/kidslearn</a><br>
     נבנה באהבה 💜 ל-KidsLearn
   </footer>
 
 </div>
 
 <script>
-  // Resolve download links to the LATEST release assets (so version bumps
-  // never break the links). Matches assets by name pattern.
-  function matchAsset(assets, kind){
-    var lower = function(a){ return a.name.toLowerCase(); };
-    if (kind === 'win')           return assets.find(function(a){ return lower(a).endsWith('.exe'); });
-    if (kind === 'mac-arm')       return assets.find(function(a){ return lower(a).indexOf('arm64')>-1 && lower(a).endsWith('.dmg'); });
-    if (kind === 'mac-intel')     return assets.find(function(a){ return lower(a).endsWith('.dmg') && lower(a).indexOf('arm64')===-1; });
-    if (kind === 'linux-appimage')return assets.find(function(a){ return lower(a).endsWith('.appimage'); });
-    if (kind === 'linux-deb')     return assets.find(function(a){ return lower(a).endsWith('.deb'); });
-    return null;
-  }
-
-  var DL = {}; // resolved urls by kind
-
-  function setupOsButton(){
-    var p = navigator.platform.toLowerCase();
-    var ua = navigator.userAgent.toLowerCase();
-    var label = document.getElementById('osLabel');
-    var btn = document.getElementById('mainDownload');
-    var hint = document.getElementById('mainHint');
-
-    if (p.indexOf('win') > -1 || ua.indexOf('windows') > -1) {
-      label.textContent = 'Windows';
-      if (DL['win']) btn.href = DL['win'];
-      btn.innerHTML = '⬇️ הורד ל-Windows (.exe)';
-      hint.textContent = 'אחרי ההורדה: כפול קליק → אם מופיע SmartScreen → More info → Run anyway';
-    } else if (p.indexOf('mac') > -1 || ua.indexOf('mac') > -1) {
-      label.textContent = 'macOS';
-      if (DL['mac-arm']) btn.href = DL['mac-arm'];
-      btn.innerHTML = '⬇️ הורד ל-Mac (Apple Silicon)';
-      if (DL['mac-intel']) hint.innerHTML = 'מק עם מעבד Intel? <a href="'+DL['mac-intel']+'">הורד את גרסת Intel</a>';
-    } else if (p.indexOf('linux') > -1 || ua.indexOf('linux') > -1) {
-      label.textContent = 'Linux';
-      if (DL['linux-appimage']) btn.href = DL['linux-appimage'];
-      btn.innerHTML = '⬇️ הורד ל-Linux (AppImage)';
-      hint.innerHTML = 'אחרי ההורדה: <code style="direction:ltr">chmod +x</code> ואז כפול קליק.';
-    } else {
-      label.textContent = 'לא זוהתה';
-      btn.setAttribute('href', '#all');
-      btn.innerHTML = '⬇️ ראה את כל ההורדות';
-    }
-  }
-
-  // Fetch latest release, wire up every [data-dl] link + the OS button.
-  fetch('https://api.github.com/repos/deanavraham-bit/kidslearn/releases/latest')
-    .then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(rel){
-      if (rel && rel.assets) {
-        document.querySelectorAll('[data-dl]').forEach(function(a){
-          var asset = matchAsset(rel.assets, a.getAttribute('data-dl'));
-          if (asset) { DL[a.getAttribute('data-dl')] = asset.browser_download_url; a.href = asset.browser_download_url; }
-        });
-      }
-    })
-    .catch(function(){})
-    .finally(setupOsButton);
-
-  function copyCmd(b){
-    var code = b.parentElement.querySelector('code').textContent;
-    navigator.clipboard.writeText(code).then(function(){
-      var t = b.textContent; b.textContent = '✓ הועתק';
-      setTimeout(function(){ b.textContent = t; }, 1500);
-    });
-  }
+  // Web-only landing page — KidsLearn runs in the browser, no installation.
 </script>
 </body>
 </html>
