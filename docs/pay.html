@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KidsLearn Pay — תשלום מאובטח</title>
+<link rel="icon" href="https://raw.githubusercontent.com/deanavraham-bit/kidslearn/main/build/icon.png">
+<style>
+  :root{ --purple:#667eea; --purple-dark:#764ba2; --green:#43a047; --ink:#2d2d44; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:var(--ink);
+    background:linear-gradient(160deg,#eef0ff 0%,#f7f0ff 100%);min-height:100vh;
+    display:flex;align-items:center;justify-content:center;padding:24px}
+  .checkout{background:#fff;border-radius:22px;max-width:440px;width:100%;
+    box-shadow:0 20px 60px rgba(0,0,0,.15);overflow:hidden}
+
+  .pay-head{background:linear-gradient(135deg,var(--purple),var(--purple-dark));color:#fff;
+    padding:22px 26px;display:flex;align-items:center;gap:12px}
+  .pay-head .mark{font-size:30px}
+  .pay-head .brand{font-size:1.3rem;font-weight:800}
+  .pay-head .brand small{display:block;font-size:.72rem;font-weight:500;opacity:.85}
+
+  .body{padding:26px}
+  .summary{background:#f7f8ff;border-radius:14px;padding:18px;margin-bottom:18px}
+  .summary .row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:.95rem}
+  .summary .row.total{border-top:1px dashed #d8ddf2;margin-top:8px;padding-top:12px;font-size:1.15rem;font-weight:800}
+  .summary .muted{color:#888}
+
+  .secure-note{display:flex;align-items:center;gap:8px;background:#e8f5e9;color:#1b5e20;
+    border-radius:10px;padding:10px 12px;font-size:.85rem;margin-bottom:16px}
+
+  .pay-btn{display:block;width:100%;padding:16px;border:none;border-radius:12px;cursor:pointer;
+    font-family:inherit;font-size:1.1rem;font-weight:800;
+    background:linear-gradient(135deg,var(--green),#00acc1);color:#fff;text-decoration:none;text-align:center}
+  .pay-btn:hover{opacity:.95}
+
+  .providers{display:flex;gap:8px;justify-content:center;margin:16px 0 4px;flex-wrap:wrap;opacity:.7}
+  .providers span{font-size:.72rem;background:#f0f0f5;border-radius:6px;padding:4px 9px;color:#666}
+
+  .setup-note{background:#fff8e6;border:1px solid #ffe08a;border-radius:10px;
+    padding:11px 13px;font-size:.8rem;color:#7a5c00;margin-top:16px}
+  .back{display:block;text-align:center;margin-top:16px;color:var(--purple);text-decoration:none;font-size:.9rem}
+</style>
+</head>
+<body>
+<div class="checkout">
+  <div class="pay-head">
+    <span class="mark">💳</span>
+    <div class="brand">KidsLearn&nbsp;Pay<small>תשלום מאובטח</small></div>
+  </div>
+
+  <div class="body">
+    <div class="summary">
+      <div class="row"><span>תוכנית</span><span id="plan-name" class="muted">—</span></div>
+      <div class="row"><span>אזור</span><span id="region-name" class="muted">—</span></div>
+      <div class="row total"><span>סה״כ</span><span id="total">—</span></div>
+    </div>
+
+    <div class="secure-note">🔒 התשלום מעובד בצורה מאובטחת. פרטי הכרטיס לא נשמרים אצלנו.</div>
+
+    <a class="pay-btn" id="pay" href="#">המשך לתשלום מאובטח ‹</a>
+
+    <div class="providers">
+      <span>Visa</span><span>Mastercard</span><span>PayPal</span><span>Apple Pay</span><span>Google Pay</span>
+    </div>
+
+    <div class="setup-note" id="setup-note">
+      ⚙️ <b>למפעיל:</b> כדי להפעיל גבייה אמיתית, חברו חשבון ספק תשלומים (Stripe / Paddle / Lemon Squeezy)
+      והחליפו את קישור הכפתור בקישור הצ'ק-אאוט שלהם.
+    </div>
+
+    <a class="back" href="./pricing.html">‹ חזרה לתוכניות</a>
+  </div>
+</div>
+
+<script>
+  var PRICES = {
+    il:   { m: '2000', y: '900', label: '🇮🇱 ישראל' },
+    intl: { m: '600',  y: '400', label: '🌍 בינלאומי' }
+  };
+  var q = new URLSearchParams(location.search);
+  var region = PRICES[q.get('region')] ? q.get('region') : 'il';
+  var plan = q.get('plan') === 'monthly' ? 'monthly' : 'yearly';
+  var price = plan === 'monthly' ? PRICES[region].m : PRICES[region].y;
+  var period = plan === 'monthly' ? 'לחודש' : 'לשנה';
+
+  document.getElementById('plan-name').textContent = plan === 'monthly' ? 'מנוי חודשי' : 'מנוי שנתי';
+  document.getElementById('region-name').textContent = PRICES[region].label;
+  document.getElementById('total').textContent = '$' + price + ' ' + period;
+
+  // Placeholder: point this at your payment provider's checkout link once connected.
+  // e.g. document.getElementById('pay').href = 'https://buy.stripe.com/your-link';
+  document.getElementById('pay').addEventListener('click', function(e){
+    e.preventDefault();
+    alert('כדי להשלים תשלום צריך לחבר ספק תשלומים (Stripe/Paddle).\nאחרי החיבור, הכפתור יוביל לצ׳ק-אאוט המאובטח.');
+  });
+</script>
+</body>
+</html>

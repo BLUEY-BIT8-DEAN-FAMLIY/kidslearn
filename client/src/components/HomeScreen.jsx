@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchChildren, deleteChild } from '../api';
+import { fetchChildren, deleteChild, IS_WEB } from '../api';
 import AddChildModal from './AddChildModal';
 import './HomeScreen.css';
 
@@ -92,6 +92,9 @@ export default function HomeScreen({ onSelect, onParents }) {
           📅 {new Date().toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </div>
         <div className="home-actions">
+          {IS_WEB && (
+            <a className="upgrade-btn" href="../pricing.html">💎 מנוי KidsLearn</a>
+          )}
           <button className="edit-btn" onClick={() => setEditMode(m => !m)}>
             {editMode ? '✓ סיום' : '✏️ עריכה'}
           </button>

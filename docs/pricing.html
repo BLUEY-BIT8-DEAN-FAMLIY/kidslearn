@@ -114,6 +114,9 @@
     document.getElementById('m-price').textContent = PRICES[r].m;
     document.getElementById('y-price').textContent = PRICES[r].y;
     document.getElementById('y-save').textContent = PRICES[r].save;
+    // Route the "choose" buttons through KidsLearn Pay with the selected region/plan
+    document.getElementById('cta-m').href = './pay.html?plan=monthly&region=' + r;
+    document.getElementById('cta-y').href = './pay.html?plan=yearly&region=' + r;
   }
   setRegion('il');
 </script>

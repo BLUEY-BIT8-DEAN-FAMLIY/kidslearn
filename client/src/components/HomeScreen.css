@@ -145,6 +145,23 @@
 }
 .edit-btn:hover { background: rgba(255,255,255,0.3); }
 
+.upgrade-btn {
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(135deg, #ffd54f, #ff8f00);
+  color: #5d4037;
+  border-radius: 12px;
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(255,143,0,0.4);
+  transition: transform 0.15s;
+}
+.upgrade-btn:hover { transform: translateY(-2px); }
+
 .child-name {
   font-size: 1.6rem;
   font-weight: 700;
