@@ -62,10 +62,6 @@
     <p class="sub">לימוד יומי כיף לילדים — חשבון, גאומטריה ועברית</p>
   </header>
 
-  <div class="placeholder-banner">
-    ⚠️ <b>מחירים לדוגמה</b> — להחלפה במחירים האמיתיים שלכם.
-  </div>
-
   <div class="region-toggle">
     <button id="btn-il" class="on" onclick="setRegion('il')">🇮🇱 ישראל</button>
     <button id="btn-intl" onclick="setRegion('intl')">🌍 בינלאומי</button>
@@ -74,7 +70,7 @@
   <div class="plans">
     <div class="plan">
       <h3>חודשי</h3>
-      <div class="price"><span class="cur">$</span><span id="m-price">4.90</span></div>
+      <div class="price"><span class="cur">$</span><span id="m-price">2000</span></div>
       <div class="per">לחודש</div>
       <div class="save">&nbsp;</div>
       <ul>
@@ -88,12 +84,12 @@
     <div class="plan best">
       <div class="best-badge">הכי משתלם</div>
       <h3>שנתי</h3>
-      <div class="price"><span class="cur">$</span><span id="y-price">49</span></div>
+      <div class="price"><span class="cur">$</span><span id="y-price">900</span></div>
       <div class="per">לשנה</div>
-      <div class="save" id="y-save">חיסכון של כ-17%</div>
+      <div class="save" id="y-save">המסלול המשתלם ביותר</div>
       <ul>
         <li>כל מה שבחודשי</li>
-        <li>2 חודשים מתנה</li>
+        <li>חיוב פעם בשנה</li>
         <li>מחיר נעול לשנה</li>
       </ul>
       <a class="cta" href="#" id="cta-y">בחרו שנתי</a>
@@ -107,10 +103,10 @@
 </div>
 
 <script>
-  // Example prices per region. Replace the numbers with the real ones.
+  // Prices per region.
   var PRICES = {
-    il:   { m: '4.90', y: '49',  save: 'חיסכון של כ-17%' },
-    intl: { m: '6.90', y: '69',  save: 'חיסכון של כ-17%' }
+    il:   { m: '2000', y: '900', save: 'המסלול המשתלם ביותר' },
+    intl: { m: '600',  y: '400', save: 'המסלול המשתלם ביותר' }
   };
   function setRegion(r){
     document.getElementById('btn-il').classList.toggle('on', r==='il');
