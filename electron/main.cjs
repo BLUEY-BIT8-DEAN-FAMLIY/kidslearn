@@ -5,6 +5,9 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
+// Ensure the Hebrew voice can autoplay without a user gesture (kids' app).
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 let mainWindow;
 let serverProcess;
 let serverLog = '';
@@ -89,7 +92,12 @@ async function createWindow() {
     title: 'KidsLearn',
     icon: getResourcePath('kidslearn.ico'),
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      // Let the Hebrew voice read aloud automatically (no user gesture needed)
+      autoplayPolicy: 'no-user-gesture-required',
+    },
   });
   Menu.setApplicationMenu(null);
 
