@@ -114,10 +114,24 @@ async function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
-app.whenReady().then(() => {
-  startServer();
-  createWindow();
-});
+// Single-instance lock: if KidsLearn is already running, focus it instead of
+// launching a second copy (a second server would fail to bind the port).
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+
+  app.whenReady().then(() => {
+    startServer();
+    createWindow();
+  });
+}
 
 app.on('window-all-closed', () => {
   if (serverProcess) { try { serverProcess.kill(); } catch {} }

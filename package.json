@@ -31,6 +31,7 @@
   "build": {
     "appId": "com.kidslearn.app",
     "productName": "KidsLearn",
+    "electronVersion": "42.2.0",
     "directories": {
       "output": "dist-electron",
       "buildResources": "build"
