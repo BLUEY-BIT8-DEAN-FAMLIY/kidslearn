@@ -342,65 +342,12 @@ async function sendEmailReport({ childName, date, results }, child) {
   console.log(`[email sent to ${cfg.recipients || cfg.smtpUser}]`);
 }
 
-// ── Daily reminder: send email if child hasn't done exercises by 20:00 ──────
-const reminderSentDates = { son: '', daughter: '' };
-
-async function sendReminderEmail(child, childName) {
-  const cfg = readConfig().email;
-  if (!cfg.enabled || !cfg.smtpUser || !cfg.smtpPass) return;
-
-  const html = `
-    <div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
-      <h2 style="color:#e65100">⏰ תזכורת יומית – KidsLearn</h2>
-      <p style="font-size:1.1em">${childName} עדיין לא השלים/ה את התרגילים היומיים!</p>
-      <p>כדאי לשבת יחד עכשיו ולעשות את התרגילים היומיים לפני השינה.</p>
-      <p style="margin-top:20px;color:#777;font-size:12px">נשלח מ-KidsLearn 🌟</p>
-    </div>`;
-
-  const transporter = nodemailer.createTransport({
-    host: cfg.smtpHost,
-    port: cfg.smtpPort,
-    secure: cfg.smtpPort === 465,
-    auth: { user: cfg.smtpUser, pass: cfg.smtpPass },
-  });
-
-  await transporter.sendMail({
-    from: `"KidsLearn 🌟" <${cfg.smtpUser}>`,
-    to: cfg.recipients || cfg.smtpUser,
-    subject: `⏰ תזכורת: ${childName} לא השלים/ה את התרגילים היום`,
-    html,
-  });
-  console.log(`[reminder sent for ${child}]`);
-}
-
-function checkDailyCompletion() {
-  const now = new Date();
-  const hour = now.getHours();
-  if (hour < 20) return; // only check after 20:00 local time
-
-  const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-  const history = readHistory();
-
-  for (const profile of readChildren()) {
-    const child = profile.id;
-    const childName = profile.name;
-    if (reminderSentDates[child] === today) continue; // already sent today
-
-    const sessions = history[child] || [];
-    const doneToday = sessions.some(s => s.date === today || (s.savedAt && s.savedAt.startsWith(today)));
-
-    if (!doneToday) {
-      reminderSentDates[child] = today;
-      sendReminderEmail(child, childName).catch(err =>
-        console.error(`[reminder failed for ${child}]:`, err.message)
-      );
-    }
-  }
-}
-
-// Check every 30 minutes; also check 10 seconds after startup in case server starts after 20:00
-setInterval(checkDailyCompletion, 30 * 60 * 1000);
-setTimeout(checkDailyCompletion, 10_000);
+// NOTE: The old "you haven't done exercises today" daily reminder was removed.
+// In the installed desktop app the server only runs while the app is open, so
+// the reminder fired right when you opened KidsLearn in the evening *to do*
+// the exercises — sending a false "didn't do exercises" email before you'd
+// even started. The learning-report email (sent when a session is completed)
+// is unaffected and still works.
 
 // SPA fallback – serve index.html for any non-API route
 import('fs').then(({ existsSync }) => {
