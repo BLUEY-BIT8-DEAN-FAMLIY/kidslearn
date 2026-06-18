@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { addChild, IS_WEB } from '../api';
+import { addChild, updateChild, IS_WEB } from '../api';
 import './AddChildModal.css';
 
 // Kid-friendly avatar choices (always available).
@@ -33,12 +33,13 @@ function fileToDataUrl(file, max = 256) {
   });
 }
 
-export default function AddChildModal({ onClose, onAdded }) {
-  const [name, setName] = useState('');
-  const [gender, setGender] = useState('boy');
-  const [subject, setSubject] = useState('math');
-  const [avatar, setAvatar] = useState(AVATARS[0]);
-  const [photo, setPhoto] = useState('');         // data URL when a photo is uploaded
+export default function AddChildModal({ onClose, onSaved, editChild }) {
+  const isEdit = !!editChild;
+  const [name, setName] = useState(editChild?.name || '');
+  const [gender, setGender] = useState(editChild?.gender || 'boy');
+  const [subject, setSubject] = useState(editChild?.subject || 'math');
+  const [avatar, setAvatar] = useState(editChild?.avatar || AVATARS[0]);
+  const [photo, setPhoto] = useState(editChild?.photo || '');   // data URL or path when set
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const fileRef = useRef();
@@ -72,8 +73,10 @@ export default function AddChildModal({ onClose, onAdded }) {
       const payload = photo
         ? { name: name.trim(), gender, subject, photo, avatar: '' }
         : { name: name.trim(), gender, subject, avatar, photo: '' };
-      const { child } = await addChild(payload);
-      onAdded(child);
+      const { child } = isEdit
+        ? await updateChild(editChild.id, payload)
+        : await addChild(payload);
+      onSaved(child);
     } catch (err) {
       setError(err.message);
       setSaving(false);
@@ -84,7 +87,7 @@ export default function AddChildModal({ onClose, onAdded }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>✕</button>
-        <h2>➕ הוספת ילד/ה</h2>
+        <h2>{isEdit ? '✏️ עריכת ילד/ה' : '➕ הוספת ילד/ה'}</h2>
 
         <div className="avatar-preview">
           {photo ? <img src={photo} alt="" className="preview-photo" /> : avatar}
@@ -148,7 +151,7 @@ export default function AddChildModal({ onClose, onAdded }) {
         {error && <div className="modal-error">{error}</div>}
 
         <button className="modal-save" onClick={handleSave} disabled={saving}>
-          {saving ? 'שומר...' : '💾 הוסף'}
+          {saving ? 'שומר...' : (isEdit ? '💾 שמור שינויים' : '💾 הוסף')}
         </button>
       </div>
     </div>

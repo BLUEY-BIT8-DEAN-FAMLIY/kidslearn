@@ -79,6 +79,19 @@ export function addChild({ name, gender, subject, avatar, photo }) {
   return child;
 }
 
+export function updateChild(id, { name, gender, subject, avatar, photo }) {
+  const list = readChildren();
+  const child = list.find(c => c.id === id);
+  if (!child) return null;
+  if (name !== undefined) child.name = String(name).trim() || child.name;
+  if (gender !== undefined) child.gender = gender === 'girl' ? 'girl' : 'boy';
+  if (subject !== undefined) child.subject = subject === 'hebrew' ? 'hebrew' : 'math';
+  if (avatar !== undefined) child.avatar = avatar;
+  if (photo !== undefined) child.photo = photo;
+  writeChildren(list);
+  return child;
+}
+
 export function deleteChild(id) {
   const list = readChildren();
   const child = list.find(c => c.id === id);

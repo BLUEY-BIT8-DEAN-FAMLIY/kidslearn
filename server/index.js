@@ -9,7 +9,7 @@ import { generateHebrewExercises } from './exercises/hebrewGenerator.js';
 import {
   saveSession, computeWeakness, getStats, readHistory, readConfig, writeConfig,
   popReviewQueue, addWrongToReviewQueue,
-  readChildren, getChild, addChild, deleteChild,
+  readChildren, getChild, addChild, updateChild, deleteChild,
 } from './storage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -93,6 +93,15 @@ app.post('/api/children', (req, res) => {
   // Reject oversized photos (defensive – client already downscales)
   if (photo && photo.length > 6_000_000) return res.status(413).json({ error: 'התמונה גדולה מדי' });
   const child = addChild({ name, gender, subject, avatar, photo });
+  res.json({ ok: true, child });
+});
+
+app.put('/api/children/:id', (req, res) => {
+  const { name, gender, subject, avatar, photo } = req.body || {};
+  if (name !== undefined && !String(name).trim()) return res.status(400).json({ error: 'חסר שם' });
+  if (photo && photo.length > 6_000_000) return res.status(413).json({ error: 'התמונה גדולה מדי' });
+  const child = updateChild(req.params.id, { name, gender, subject, avatar, photo });
+  if (!child) return res.status(404).json({ error: 'הילד לא נמצא' });
   res.json({ ok: true, child });
 });
 

@@ -52,6 +52,17 @@ async function serverAddChild(payload) {
   return data;
 }
 
+async function serverUpdateChild(id, payload) {
+  const res = await fetch(`${BASE}/children/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update child');
+  return data;
+}
+
 async function serverDeleteChild(id) {
   const res = await fetch(`${BASE}/children/${id}`, { method: 'DELETE' });
   const data = await res.json();
@@ -86,6 +97,7 @@ export const fetchStats       = WEB ? local.fetchStats       : serverFetchStats;
 export const fetchHistory     = WEB ? local.fetchHistory     : serverFetchHistory;
 export const fetchChildren    = WEB ? local.fetchChildren    : serverFetchChildren;
 export const addChild         = WEB ? local.addChild         : serverAddChild;
+export const updateChild      = WEB ? local.updateChild      : serverUpdateChild;
 export const deleteChild      = WEB ? local.deleteChild      : serverDeleteChild;
 export const fetchEmailConfig = WEB ? local.fetchEmailConfig : serverFetchEmailConfig;
 export const saveEmailConfig  = WEB ? local.saveEmailConfig  : serverSaveEmailConfig;

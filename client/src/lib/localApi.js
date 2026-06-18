@@ -57,6 +57,19 @@ export async function addChild({ name, gender, subject, avatar, photo }) {
   return { ok: true, child };
 }
 
+export async function updateChild(id, { name, gender, subject, avatar, photo }) {
+  const list = readChildren();
+  const child = list.find(c => c.id === id);
+  if (!child) throw new Error('הילד לא נמצא');
+  if (name !== undefined) child.name = String(name).trim() || child.name;
+  if (gender !== undefined) child.gender = gender === 'girl' ? 'girl' : 'boy';
+  if (subject !== undefined) child.subject = subject === 'hebrew' ? 'hebrew' : 'math';
+  if (avatar !== undefined) child.avatar = avatar;
+  if (photo !== undefined) child.photo = photo;
+  write(K.children, list);
+  return { ok: true, child };
+}
+
 export async function deleteChild(id) {
   const list = readChildren();
   const child = list.find(c => c.id === id);

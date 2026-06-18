@@ -12,6 +12,7 @@ export default function HomeScreen({ onSelect, onParents }) {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [editingChild, setEditingChild] = useState(null);
   const [editMode, setEditMode] = useState(false);
 
   function load() {
@@ -68,7 +69,13 @@ export default function HomeScreen({ onSelect, onParents }) {
               onClick={() => !editMode && onSelect(child.id, child.name, child.subject)}
             >
               {editMode && (
-                <span className="card-delete" onClick={e => handleDelete(e, child)}>✕</span>
+                <>
+                  <span className="card-delete" onClick={e => handleDelete(e, child)}>✕</span>
+                  <span
+                    className="card-edit"
+                    onClick={e => { e.stopPropagation(); setEditingChild(child); }}
+                  >✏️</span>
+                </>
               )}
               {photoFor(child)}
               <div className="child-name">{child.name}</div>
@@ -104,10 +111,17 @@ export default function HomeScreen({ onSelect, onParents }) {
         </div>
       </div>
 
-      {showAdd && (
+      {(showAdd || editingChild) && (
         <AddChildModal
-          onClose={() => setShowAdd(false)}
-          onAdded={(child) => { setShowAdd(false); setChildren(cs => [...cs, child]); }}
+          editChild={editingChild}
+          onClose={() => { setShowAdd(false); setEditingChild(null); }}
+          onSaved={(child) => {
+            setShowAdd(false);
+            setEditingChild(null);
+            setChildren(cs => cs.some(c => c.id === child.id)
+              ? cs.map(c => (c.id === child.id ? child : c))
+              : [...cs, child]);
+          }}
         />
       )}
     </div>
