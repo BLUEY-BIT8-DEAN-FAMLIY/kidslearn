@@ -35,10 +35,10 @@ export default function ExerciseSession({ child, childName, subject, onBack }) {
   const date = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
-    fetchExercises(child, date)
+    fetchExercises(child, date, subject)
       .then(data => { setExercises(data.exercises); setLoading(false); })
       .catch(err => { setError(err.message); setLoading(false); });
-  }, [child, date]);
+  }, [child, date, subject]);
 
   function buildResult(ex, finalCorrect, totalAttempts) {
     return {
@@ -110,7 +110,7 @@ export default function ExerciseSession({ child, childName, subject, onBack }) {
 
   async function finishSession(finalResults) {
     setDone(true);
-    await saveSession({ child, childName, date, results: finalResults });
+    await saveSession({ child, childName, date, subject, results: finalResults });
   }
 
   if (loading) return (

@@ -14,6 +14,25 @@ const K = {
 // No children ship with the app – each family creates their own profiles.
 const DEFAULT_CHILDREN = [];
 
+const VALID_SUBJECTS = ['math', 'hebrew'];
+const VALID_MATH_LEVELS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+
+function sanitizeSubjects(subjects, fallbackSubject) {
+  const arr = (Array.isArray(subjects) ? subjects : []).filter(s => VALID_SUBJECTS.includes(s));
+  const unique = [...new Set(arr)];
+  if (unique.length) return unique;
+  return [fallbackSubject === 'hebrew' ? 'hebrew' : 'math'];
+}
+function sanitizeLevel(level) {
+  const n = Number(level);
+  return VALID_MATH_LEVELS.includes(n) ? n : null;
+}
+function normalizeChild(c) {
+  if (!c || typeof c !== 'object') return c;
+  const subjects = sanitizeSubjects(c.subjects, c.subject);
+  return { ...c, subjects, subject: subjects[0], mathLevel: sanitizeLevel(c.mathLevel) };
+}
+
 function read(key, fallback) {
   try {
     const v = localStorage.getItem(key);
@@ -29,7 +48,7 @@ function write(key, value) {
 // ── Children ────────────────────────────────────────────────────────────
 function readChildren() {
   const list = read(K.children, null);
-  return Array.isArray(list) && list.length ? list : [...DEFAULT_CHILDREN];
+  return Array.isArray(list) && list.length ? list.map(normalizeChild) : [...DEFAULT_CHILDREN];
 }
 function getChildProfile(id) {
   return readChildren().find(c => c.id === id) || null;
@@ -39,15 +58,18 @@ export async function fetchChildren() {
   return { children: readChildren() };
 }
 
-export async function addChild({ name, gender, subject, avatar, photo }) {
+export async function addChild({ name, gender, subject, subjects, mathLevel, avatar, photo }) {
   const list = readChildren();
   let n = 1;
   while (list.some(c => c.id === `kid_${n}`)) n++;
+  const subs = sanitizeSubjects(subjects, subject);
   const child = {
     id: `kid_${n}`,
     name: String(name || '').trim() || 'ילד/ה',
     gender: gender === 'girl' ? 'girl' : 'boy',
-    subject: subject === 'hebrew' ? 'hebrew' : 'math',
+    subjects: subs,
+    subject: subs[0],
+    mathLevel: sanitizeLevel(mathLevel),
     avatar: avatar || '',
     photo: photo || '',
     builtin: false,
@@ -57,13 +79,20 @@ export async function addChild({ name, gender, subject, avatar, photo }) {
   return { ok: true, child };
 }
 
-export async function updateChild(id, { name, gender, subject, avatar, photo }) {
+export async function updateChild(id, { name, gender, subject, subjects, mathLevel, avatar, photo }) {
   const list = readChildren();
   const child = list.find(c => c.id === id);
   if (!child) throw new Error('הילד לא נמצא');
   if (name !== undefined) child.name = String(name).trim() || child.name;
   if (gender !== undefined) child.gender = gender === 'girl' ? 'girl' : 'boy';
-  if (subject !== undefined) child.subject = subject === 'hebrew' ? 'hebrew' : 'math';
+  if (subjects !== undefined) {
+    child.subjects = sanitizeSubjects(subjects, child.subject);
+    child.subject = child.subjects[0];
+  } else if (subject !== undefined) {
+    child.subjects = sanitizeSubjects([subject], subject);
+    child.subject = child.subjects[0];
+  }
+  if (mathLevel !== undefined) child.mathLevel = sanitizeLevel(mathLevel);
   if (avatar !== undefined) child.avatar = avatar;
   if (photo !== undefined) child.photo = photo;
   write(K.children, list);
@@ -79,6 +108,9 @@ export async function deleteChild(id) {
 }
 
 // ── Review queue ────────────────────────────────────────────────────────
+// Resurfaced wrong answers are scoped per child AND subject.
+const reviewKey = (child, subject) => `${child}:${subject || 'math'}`;
+
 function popReviewQueue(child, count) {
   const data = read(K.review, {});
   const queue = data[child] || [];
@@ -122,24 +154,25 @@ function computeWeakness(child, lookback = 5) {
   return weakness;
 }
 
-export async function fetchExercises(child, date) {
+export async function fetchExercises(child, date, subject) {
   const profile = getChildProfile(child);
   if (!profile) throw new Error('Unknown child');
+  const chosen = profile.subjects.includes(subject) ? subject : profile.subjects[0];
   const weakness = computeWeakness(child);
-  const reviewExercises = popReviewQueue(child, 3);
-  const exercises = profile.subject === 'hebrew'
+  const reviewExercises = popReviewQueue(reviewKey(child, chosen), 3);
+  const exercises = chosen === 'hebrew'
     ? generateHebrewExercises(weakness, reviewExercises)
-    : generateMathExercises(weakness, reviewExercises);
-  return { child, subject: profile.subject, date, exercises, weakness };
+    : generateMathExercises(weakness, reviewExercises, profile.mathLevel);
+  return { child, subject: chosen, date, exercises, weakness };
 }
 
 export async function saveSession(payload) {
-  const { child, results } = payload;
+  const { child, results, subject } = payload;
   const history = readHistory();
   if (!history[child]) history[child] = [];
   history[child].push({ ...payload, savedAt: new Date().toISOString() });
   write(K.history, history);
-  addWrongToReviewQueue(child, results);
+  addWrongToReviewQueue(reviewKey(child, subject), results);
   return { ok: true };
 }
 
@@ -181,4 +214,15 @@ export async function saveEmailConfig() {
 }
 export async function testEmail() {
   return { ok: false, error: 'שליחת מייל זמינה רק בגרסת המחשב (לא בגרסת הווב)' };
+}
+
+// ── Background removal (desktop-only feature; no-op in the web build) ──────
+export async function removeBackground(image) {
+  return { ok: false, image, webVersion: true };
+}
+export async function fetchBgConfig() {
+  return { hasKey: false, keyLength: 0, webVersion: true };
+}
+export async function saveBgConfig() {
+  return { ok: true, webVersion: true };
 }

@@ -229,3 +229,44 @@
 .parents-btn:hover {
   background: rgba(255,255,255,0.3);
 }
+
+/* Subject picker (shown for a child who learns more than one subject) */
+.subject-picker {
+  position: relative;
+  background: #fff;
+  border-radius: 24px;
+  padding: 32px 28px;
+  width: min(440px, 92vw);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  text-align: center;
+}
+.subject-picker h2 {
+  margin: 0 0 22px;
+  color: #333;
+  font-size: 1.4rem;
+}
+.subject-pick-row {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+.subject-pick-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 22px 12px;
+  border-radius: 18px;
+  border: 3px solid transparent;
+  background: #f0f4ff;
+  color: #333;
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.subject-pick-btn:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,0.15); }
+.subject-pick-btn.math { background: linear-gradient(135deg, #e3e8ff, #f0f4ff); border-color: #5c6bc0; }
+.subject-pick-btn.hebrew { background: linear-gradient(135deg, #fce4ec, #fff0f5); border-color: #e91e8c; }
+.subject-pick-icon { font-size: 2.4rem; }

@@ -360,7 +360,10 @@ const REVIEW_DONOR_ORDER = ['arithmetic', 'geometry', 'word'];
 const ALL_TYPES = Object.values(CATEGORIES).flat();
 const MAX_PER_TYPE = 2;
 
-export function generateMathExercises(weakness = {}, reviewExercises = []) {
+// The original "mixed" curriculum (end-1st / start-2nd grade): arithmetic up
+// to 30 + place value to 100 + sequences + geometry. Used when a child has no
+// explicit mathLevel (e.g. the built-in son profile). Left exactly as-is.
+function generateMixedMath(weakness = {}, reviewExercises = []) {
   const reviewCount = Math.min(reviewExercises.length, 3);
 
   // Identify weakest types so we can prefer them within their own category.
@@ -423,4 +426,124 @@ export function generateMathExercises(weakness = {}, reviewExercises = []) {
 
   // Shuffle so categories are interleaved, then assign display ids.
   return shuffle(exercises).map((ex, i) => ({ ...ex, id: i + 1 }));
+}
+
+// ── Level-aware arithmetic ("חיבור וחיסור עד N") ───────────────────────────
+// When a child has an explicit mathLevel, the whole session is focused on
+// addition & subtraction up to that ceiling, with light, in-range support
+// (compare / sequence / complete, plus word problems from level 20 up). A
+// beginner at level 10 therefore only ever sees numbers within 0–10.
+// Types stay generic ('addition' / 'subtraction' / 'complete') so a child's
+// history isn't fragmented when the level changes.
+export const MATH_LEVELS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+
+function levelDifficulty(max) {
+  return max <= 10 ? 1 : max <= 30 ? 2 : 3;
+}
+
+function makeAddition(max) {
+  const result = randInt(2, max);
+  const a = randInt(0, result);
+  const b = result - a;
+  return { type: 'addition', difficulty: levelDifficulty(max), dir: 'ltr', question: `${a} + ${b} = ?`, answer: result, hint: `${a} + ${b}` };
+}
+
+function makeSubtraction(max) {
+  const a = randInt(2, max);
+  const b = randInt(0, a);
+  return { type: 'subtraction', difficulty: levelDifficulty(max), dir: 'ltr', question: `${a} - ${b} = ?`, answer: a - b, hint: `${a} - ${b}` };
+}
+
+function makeComplete(max) {
+  // Complete to a "round" target that fits the level (10, 20, … up to max).
+  const targets = [];
+  for (let r = 10; r <= max; r += 10) targets.push(r);
+  const target = targets.length ? pick(targets) : max;
+  const a = randInt(1, target - 1);
+  return { type: 'complete', difficulty: 2, dir: 'ltr', question: `${a} + ? = ${target}`, answer: target - a, hint: `כמה צריך להוסיף ל-${a} כדי להגיע ל-${target}?` };
+}
+
+function makeCompareLeveled(max) {
+  const a = randInt(0, max);
+  const b = randInt(0, max);
+  const symbol = a > b ? '>' : a < b ? '<' : '=';
+  return { type: 'compare', difficulty: 1, dir: 'ltr', question: `${a} ___ ${b}`, answer: symbol, options: ['>', '<', '='], hint: `האם ${a} גדול, קטן או שווה ל-${b}?` };
+}
+
+function makeSequenceLeveled(max) {
+  const step = max <= 10 ? 1 : pick([1, 1, 2]);
+  const ascending = pick([true, false]);
+  const span = 4 * step;
+  // Keep every one of the 5 terms within [0, max].
+  const start = ascending
+    ? randInt(0, Math.max(0, max - span))
+    : randInt(span, max);
+  return buildSequence('sequence', start, ascending ? step : -step, {
+    difficulty: 1,
+    hint: ascending ? `המספרים עולים ב-${step}` : `המספרים יורדים ב-${step}`,
+  });
+}
+
+function makeWordAddLeveled(max) {
+  const a = randInt(2, Math.max(2, max - 1));
+  const b = randInt(1, Math.max(1, max - a));
+  const tpl = pick(WORD_PROBLEMS_ADD);
+  return { type: 'word_add', difficulty: 3, dir: 'rtl', question: tpl(a, b), answer: a + b, hint: `${a} + ${b}` };
+}
+
+function makeWordSubLeveled(max) {
+  const a = randInt(Math.min(5, max), max);
+  const b = randInt(1, Math.max(1, a - 1));
+  const tpl = pick(WORD_PROBLEMS_SUB);
+  return { type: 'word_sub', difficulty: 3, dir: 'rtl', question: tpl(a, b), answer: a - b, hint: `${a} - ${b}` };
+}
+
+function generateLeveledMath(level, reviewExercises = []) {
+  const L = MATH_LEVELS.includes(level) ? level : 30;
+  const reviewCount = Math.min(reviewExercises.length, 3);
+
+  // Build a 20-slot plan. Addition/subtraction are the bulk; the rest is light,
+  // in-range support. Word problems join from level 20 up.
+  const plan = [];
+  const push = (gen, n) => { for (let i = 0; i < n; i++) plan.push(gen); };
+  push(() => makeAddition(L), L <= 10 ? 7 : 6);
+  push(() => makeSubtraction(L), L <= 10 ? 7 : 6);
+  push(() => makeComplete(L), 2);
+  push(() => makeCompareLeveled(L), 2);
+  push(() => makeSequenceLeveled(L), 2);
+  if (L >= 20) {
+    push(() => makeWordAddLeveled(L), 1);
+    push(() => makeWordSubLeveled(L), 1);
+  }
+
+  // Free slots for resurfaced review questions by dropping leading arithmetic.
+  for (let i = 0; i < reviewCount && plan.length; i++) plan.shift();
+
+  const exercises = [];
+  const seen = new Set();
+  for (const r of reviewExercises.slice(0, reviewCount)) {
+    exercises.push({ ...r, isReview: true });
+    seen.add(`${r.type}|${r.question}`);
+  }
+  for (const gen of plan) {
+    let ex = gen();
+    let key = `${ex.type}|${ex.question}`;
+    let attempts = 0;
+    while (seen.has(key) && attempts < 25) { ex = gen(); key = `${ex.type}|${ex.question}`; attempts++; }
+    seen.add(key);
+    exercises.push(ex);
+  }
+  return shuffle(exercises).map((ex, i) => ({ ...ex, id: i + 1 }));
+}
+
+/**
+ * Public entry point. `level` (10..100) produces a focused
+ * addition/subtraction session up to that ceiling; null/undefined keeps the
+ * original mixed grade-1-2 curriculum.
+ */
+export function generateMathExercises(weakness = {}, reviewExercises = [], level = null) {
+  if (level && MATH_LEVELS.includes(level)) {
+    return generateLeveledMath(level, reviewExercises);
+  }
+  return generateMixedMath(weakness, reviewExercises);
 }

@@ -29,6 +29,9 @@ import('fs').then(({ existsSync }) => {
 });
 
 const TYPE_LABELS = {
+  addition: 'חיבור',
+  subtraction: 'חיסור',
+  complete: 'השלמה למספר עגול',
   addition_10: 'חיבור עד 10',
   addition_20: 'חיבור עד 20',
   subtraction_10: 'חיסור עד 10',
@@ -67,19 +70,27 @@ const TYPE_LABELS = {
   odd_one_out: 'מה שונה',
 };
 
+// Review questions resurface per child AND per subject, so a kid who learns
+// both math and Hebrew never gets a letter question inside a math session.
+const reviewKey = (child, subject) => `${child}:${subject || 'math'}`;
+
 app.get('/api/exercises/:child', (req, res) => {
   const { child } = req.params;
   const date = req.query.date || new Date().toISOString().slice(0, 10);
   const profile = getChild(child);
   if (!profile) return res.status(404).json({ error: 'Unknown child' });
 
-  const weakness = computeWeakness(child);
-  const reviewExercises = popReviewQueue(child, 3);
-  const exercises = profile.subject === 'hebrew'
-    ? generateHebrewExercises(weakness, reviewExercises)
-    : generateMathExercises(weakness, reviewExercises);
+  // A child can have more than one subject; honour the requested one if enabled.
+  const requested = String(req.query.subject || '');
+  const subject = profile.subjects.includes(requested) ? requested : profile.subjects[0];
 
-  return res.json({ child, subject: profile.subject, date, exercises, weakness });
+  const weakness = computeWeakness(child);
+  const reviewExercises = popReviewQueue(reviewKey(child, subject), 3);
+  const exercises = subject === 'hebrew'
+    ? generateHebrewExercises(weakness, reviewExercises)
+    : generateMathExercises(weakness, reviewExercises, profile.mathLevel);
+
+  return res.json({ child, subject, date, exercises, weakness });
 });
 
 // ── Children (profiles) ───────────────────────────────────────────────────
@@ -88,19 +99,19 @@ app.get('/api/children', (req, res) => {
 });
 
 app.post('/api/children', (req, res) => {
-  const { name, gender, subject, avatar, photo } = req.body || {};
+  const { name, gender, subject, subjects, mathLevel, avatar, photo } = req.body || {};
   if (!name || !String(name).trim()) return res.status(400).json({ error: 'חסר שם' });
   // Reject oversized photos (defensive – client already downscales)
   if (photo && photo.length > 6_000_000) return res.status(413).json({ error: 'התמונה גדולה מדי' });
-  const child = addChild({ name, gender, subject, avatar, photo });
+  const child = addChild({ name, gender, subject, subjects, mathLevel, avatar, photo });
   res.json({ ok: true, child });
 });
 
 app.put('/api/children/:id', (req, res) => {
-  const { name, gender, subject, avatar, photo } = req.body || {};
+  const { name, gender, subject, subjects, mathLevel, avatar, photo } = req.body || {};
   if (name !== undefined && !String(name).trim()) return res.status(400).json({ error: 'חסר שם' });
   if (photo && photo.length > 6_000_000) return res.status(413).json({ error: 'התמונה גדולה מדי' });
-  const child = updateChild(req.params.id, { name, gender, subject, avatar, photo });
+  const child = updateChild(req.params.id, { name, gender, subject, subjects, mathLevel, avatar, photo });
   if (!child) return res.status(404).json({ error: 'הילד לא נמצא' });
   res.json({ ok: true, child });
 });
@@ -112,14 +123,14 @@ app.delete('/api/children/:id', (req, res) => {
 });
 
 app.post('/api/save-session', async (req, res) => {
-  const { child, childName, date, results } = req.body;
+  const { child, childName, date, results, subject } = req.body;
   if (!child || !results) return res.status(400).json({ error: 'Missing data' });
 
-  const session = { child, childName, date, results };
+  const session = { child, childName, date, results, subject };
   saveSession(child, session);
 
-  // Resurface wrong exercises into review queue for next session
-  addWrongToReviewQueue(child, results);
+  // Resurface wrong exercises into review queue for next session (per subject)
+  addWrongToReviewQueue(reviewKey(child, subject), results);
 
   // Send email report (non-blocking)
   sendEmailReport(session, child).catch(err => console.error('Email failed:', err.message));
@@ -247,6 +258,58 @@ app.post('/api/config/email/test', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── Background-removal config + proxy (remove.bg) ─────────────────────────
+// The API key is stored locally and never echoed back to the client.
+app.get('/api/config/removebg', (req, res) => {
+  const cfg = readConfig().removeBg || {};
+  res.json({ hasKey: !!cfg.apiKey, keyLength: (cfg.apiKey || '').length });
+});
+
+app.post('/api/config/removebg', (req, res) => {
+  const { apiKey } = req.body || {};
+  const config = readConfig();
+  const provided = apiKey !== undefined && apiKey !== '';
+  config.removeBg = {
+    apiKey: provided ? String(apiKey).trim() : (config.removeBg?.apiKey || ''),
+  };
+  writeConfig(config);
+  res.json({ ok: true, hasKey: !!config.removeBg.apiKey, keyLength: config.removeBg.apiKey.length });
+});
+
+// Remove the background from an uploaded photo. Returns a transparent PNG.
+app.post('/api/remove-bg', async (req, res) => {
+  const { image } = req.body || {};
+  if (!image) return res.status(400).json({ error: 'חסרה תמונה' });
+  const apiKey = (readConfig().removeBg?.apiKey || '').trim();
+  if (!apiKey) return res.status(400).json({ error: 'לא הוגדר מפתח API להסרת רקע' });
+
+  const b64 = String(image).replace(/^data:image\/\w+;base64,/, '');
+  try {
+    const body = new URLSearchParams();
+    body.set('image_file_b64', b64);
+    body.set('size', 'auto');
+    const r = await fetch('https://api.remove.bg/v1.0/removebg', {
+      method: 'POST',
+      headers: { 'X-Api-Key': apiKey },
+      body,
+    });
+    if (!r.ok) {
+      let msg = `remove.bg החזיר שגיאה (${r.status})`;
+      if (r.status === 403) msg = 'מפתח ה-API שגוי או שנגמרו הקרדיטים';
+      else {
+        try { const e = await r.json(); if (e?.errors?.[0]?.title) msg = e.errors[0].title; } catch {}
+      }
+      console.error('[remove-bg]', r.status, msg);
+      return res.status(502).json({ error: msg });
+    }
+    const buf = Buffer.from(await r.arrayBuffer());
+    return res.json({ ok: true, image: `data:image/png;base64,${buf.toString('base64')}` });
+  } catch (e) {
+    console.error('[remove-bg] proxy error:', e.message);
+    return res.status(502).json({ error: 'הסרת הרקע נכשלה: ' + e.message });
   }
 });
 

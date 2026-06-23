@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { fetchStats, fetchHistory, fetchChildren, IS_WEB } from '../api';
 import EmailSettings from './EmailSettings';
+import BgRemovalSettings from './BgRemovalSettings';
 import './ParentsScreen.css';
 
 const TYPE_LABELS = {
+  addition: 'חיבור',
+  subtraction: 'חיסור',
+  complete: 'השלמה למספר עגול',
   addition_10: 'חיבור עד 10',
   addition_20: 'חיבור עד 20',
   subtraction_10: 'חיסור עד 10',
@@ -175,6 +179,12 @@ export default function ParentsScreen({ onBack }) {
           {!IS_WEB && (
             <div className="section">
               <EmailSettings />
+            </div>
+          )}
+
+          {!IS_WEB && (
+            <div className="section">
+              <BgRemovalSettings />
             </div>
           )}
 

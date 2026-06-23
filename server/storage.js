@@ -15,6 +15,32 @@ const CHILDREN_FILE = path.join(DATA_DIR, 'children.json');
 // No children ship with the app – each family creates their own profiles.
 const DEFAULT_CHILDREN = [];
 
+const VALID_SUBJECTS = ['math', 'hebrew'];
+const VALID_MATH_LEVELS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+
+// Keep a subjects array (a child may learn more than one subject). Falls back
+// to the legacy single `subject` field, and always yields at least one.
+function sanitizeSubjects(subjects, fallbackSubject) {
+  const arr = (Array.isArray(subjects) ? subjects : []).filter(s => VALID_SUBJECTS.includes(s));
+  const unique = [...new Set(arr)];
+  if (unique.length) return unique;
+  return [fallbackSubject === 'hebrew' ? 'hebrew' : 'math'];
+}
+
+// null = the mixed grade-1-2 curriculum; otherwise a focused +/- ceiling.
+function sanitizeLevel(level) {
+  const n = Number(level);
+  return VALID_MATH_LEVELS.includes(n) ? n : null;
+}
+
+// Ensure every child has subjects[] (derived from legacy `subject`) and a
+// mathLevel, so the rest of the app can rely on them being present.
+function normalizeChild(c) {
+  if (!c || typeof c !== 'object') return c;
+  const subjects = sanitizeSubjects(c.subjects, c.subject);
+  return { ...c, subjects, subject: subjects[0], mathLevel: sanitizeLevel(c.mathLevel) };
+}
+
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   // On first run in packaged mode, seed user data from the bundled defaults
@@ -44,7 +70,7 @@ export function readChildren() {
   ensureDataDir();
   try {
     const list = JSON.parse(fs.readFileSync(CHILDREN_FILE, 'utf8'));
-    return Array.isArray(list) && list.length ? list : [...DEFAULT_CHILDREN];
+    return Array.isArray(list) && list.length ? list.map(normalizeChild) : [...DEFAULT_CHILDREN];
   } catch {
     return [...DEFAULT_CHILDREN];
   }
@@ -60,16 +86,19 @@ export function getChild(id) {
 }
 
 /** Add a new child. `seq` makes the id unique without relying on Date.now(). */
-export function addChild({ name, gender, subject, avatar, photo }) {
+export function addChild({ name, gender, subject, subjects, mathLevel, avatar, photo }) {
   const list = readChildren();
   const base = 'kid';
   let n = 1;
   while (list.some(c => c.id === `${base}_${n}`)) n++;
+  const subs = sanitizeSubjects(subjects, subject);
   const child = {
     id: `${base}_${n}`,
     name: String(name || '').trim() || 'ילד/ה',
     gender: gender === 'girl' ? 'girl' : 'boy',
-    subject: subject === 'hebrew' ? 'hebrew' : 'math',
+    subjects: subs,
+    subject: subs[0],                 // kept in sync for back-compat
+    mathLevel: sanitizeLevel(mathLevel),
     avatar: avatar || '',
     photo: photo || '',
     builtin: false,
@@ -79,13 +108,20 @@ export function addChild({ name, gender, subject, avatar, photo }) {
   return child;
 }
 
-export function updateChild(id, { name, gender, subject, avatar, photo }) {
+export function updateChild(id, { name, gender, subject, subjects, mathLevel, avatar, photo }) {
   const list = readChildren();
   const child = list.find(c => c.id === id);
   if (!child) return null;
   if (name !== undefined) child.name = String(name).trim() || child.name;
   if (gender !== undefined) child.gender = gender === 'girl' ? 'girl' : 'boy';
-  if (subject !== undefined) child.subject = subject === 'hebrew' ? 'hebrew' : 'math';
+  if (subjects !== undefined) {
+    child.subjects = sanitizeSubjects(subjects, child.subject);
+    child.subject = child.subjects[0];
+  } else if (subject !== undefined) {
+    child.subjects = sanitizeSubjects([subject], subject);
+    child.subject = child.subjects[0];
+  }
+  if (mathLevel !== undefined) child.mathLevel = sanitizeLevel(mathLevel);
   if (avatar !== undefined) child.avatar = avatar;
   if (photo !== undefined) child.photo = photo;
   writeChildren(list);
@@ -198,6 +234,10 @@ const DEFAULT_CONFIG = {
     smtpUser: '',
     smtpPass: '',
     recipients: '',
+  },
+  // remove.bg API key for transparent-background photo uploads.
+  removeBg: {
+    apiKey: '',
   },
 };
 

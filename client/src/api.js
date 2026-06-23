@@ -7,8 +7,12 @@ const WEB = import.meta.env.VITE_TARGET === 'web';
 const BASE = '/api';
 
 // ── Server implementations ──────────────────────────────────────────────
-async function serverFetchExercises(child, date) {
-  const url = date ? `${BASE}/exercises/${child}?date=${date}` : `${BASE}/exercises/${child}`;
+async function serverFetchExercises(child, date, subject) {
+  const params = new URLSearchParams();
+  if (date) params.set('date', date);
+  if (subject) params.set('subject', subject);
+  const qs = params.toString();
+  const url = qs ? `${BASE}/exercises/${child}?${qs}` : `${BASE}/exercises/${child}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error('Failed to fetch exercises');
   return res.json();
@@ -90,6 +94,35 @@ async function serverTestEmail() {
   return res.json();
 }
 
+// ── Background removal (desktop only — proxies to the configured API) ──────
+async function serverRemoveBackground(image) {
+  const res = await fetch(`${BASE}/remove-bg`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'הסרת הרקע נכשלה');
+  return data; // { ok, image }
+}
+
+async function serverFetchBgConfig() {
+  const res = await fetch(`${BASE}/config/removebg`);
+  if (!res.ok) throw new Error('Failed to fetch background-removal config');
+  return res.json();
+}
+
+async function serverSaveBgConfig(cfg) {
+  const res = await fetch(`${BASE}/config/removebg`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cfg),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'שמירה נכשלה');
+  return data;
+}
+
 // ── Public API (picks local or server) ──────────────────────────────────
 export const fetchExercises   = WEB ? local.fetchExercises   : serverFetchExercises;
 export const saveSession      = WEB ? local.saveSession      : serverSaveSession;
@@ -102,5 +135,8 @@ export const deleteChild      = WEB ? local.deleteChild      : serverDeleteChild
 export const fetchEmailConfig = WEB ? local.fetchEmailConfig : serverFetchEmailConfig;
 export const saveEmailConfig  = WEB ? local.saveEmailConfig  : serverSaveEmailConfig;
 export const testEmail        = WEB ? local.testEmail        : serverTestEmail;
+export const removeBackground = WEB ? local.removeBackground : serverRemoveBackground;
+export const fetchBgConfig    = WEB ? local.fetchBgConfig    : serverFetchBgConfig;
+export const saveBgConfig     = WEB ? local.saveBgConfig     : serverSaveBgConfig;
 
 export const IS_WEB = WEB;

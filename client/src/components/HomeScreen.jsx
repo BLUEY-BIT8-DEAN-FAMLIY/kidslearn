@@ -4,9 +4,15 @@ import AddChildModal from './AddChildModal';
 import './HomeScreen.css';
 
 const SUBJECT_DESC = {
-  math: { desc: 'חשבון', tag: 'תרגילי חשבון' },
-  hebrew: { desc: 'עברית', tag: 'תרגילי אותיות' },
+  math: { desc: 'חשבון', tag: 'תרגילי חשבון', icon: '➕' },
+  hebrew: { desc: 'עברית', tag: 'תרגילי אותיות', icon: '🔤' },
 };
+
+function subjectsOf(child) {
+  return Array.isArray(child.subjects) && child.subjects.length
+    ? child.subjects
+    : [child.subject || 'math'];
+}
 
 export default function HomeScreen({ onSelect, onParents }) {
   const [children, setChildren] = useState([]);
@@ -14,6 +20,7 @@ export default function HomeScreen({ onSelect, onParents }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editingChild, setEditingChild] = useState(null);
   const [editMode, setEditMode] = useState(false);
+  const [pickingSubjectFor, setPickingSubjectFor] = useState(null);
 
   function load() {
     fetchChildren()
@@ -61,12 +68,18 @@ export default function HomeScreen({ onSelect, onParents }) {
         {loading && <div className="home-loading">טוען...</div>}
 
         {!loading && children.map(child => {
-          const info = SUBJECT_DESC[child.subject] || SUBJECT_DESC.math;
+          const subs = subjectsOf(child);
+          const desc = subs.map(s => SUBJECT_DESC[s]?.desc || s).join(' · ');
+          const tag = subs.length > 1 ? '✨ בחירת מקצוע' : (SUBJECT_DESC[subs[0]]?.tag || '');
           return (
             <button
               key={child.id}
               className={`child-card ${child.subject === 'hebrew' ? 'daughter' : 'son'}`}
-              onClick={() => !editMode && onSelect(child.id, child.name, child.subject)}
+              onClick={() => {
+                if (editMode) return;
+                if (subs.length > 1) setPickingSubjectFor(child);
+                else onSelect(child.id, child.name, subs[0]);
+              }}
             >
               {editMode && (
                 <>
@@ -79,8 +92,8 @@ export default function HomeScreen({ onSelect, onParents }) {
               )}
               {photoFor(child)}
               <div className="child-name">{child.name}</div>
-              <div className="child-desc">{info.desc}</div>
-              <div className="child-tag">{info.tag}</div>
+              <div className="child-desc">{desc}</div>
+              <div className="child-tag">{tag}</div>
             </button>
           );
         })}
@@ -110,6 +123,31 @@ export default function HomeScreen({ onSelect, onParents }) {
           </button>
         </div>
       </div>
+
+      {pickingSubjectFor && (
+        <div className="modal-overlay" onClick={() => setPickingSubjectFor(null)}>
+          <div className="subject-picker" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setPickingSubjectFor(null)}>✕</button>
+            <h2>{pickingSubjectFor.name}, מה לומדים היום?</h2>
+            <div className="subject-pick-row">
+              {subjectsOf(pickingSubjectFor).map(s => (
+                <button
+                  key={s}
+                  className={`subject-pick-btn ${s === 'hebrew' ? 'hebrew' : 'math'}`}
+                  onClick={() => {
+                    const c = pickingSubjectFor;
+                    setPickingSubjectFor(null);
+                    onSelect(c.id, c.name, s);
+                  }}
+                >
+                  <span className="subject-pick-icon">{SUBJECT_DESC[s]?.icon}</span>
+                  <span>{SUBJECT_DESC[s]?.desc || s}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {(showAdd || editingChild) && (
         <AddChildModal
