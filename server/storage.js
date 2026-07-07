@@ -1,6 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import {
+  sanitizeGrade, sanitizeEnglishLevel, sanitizeHebrewLevel, sanitizeMathStage, foldSession,
+  sanitizeDailyPlan, sanitizePlanUntil, planIsActive,
+} from './exercises/curriculum.js';
+import { pickNewSticker, computePracticeStreak, computeAchievements } from './exercises/rewards.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // When packaged in Electron, KIDSLEARN_DATA_DIR points to a writable location
@@ -11,11 +16,14 @@ const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const REVIEW_FILE = path.join(DATA_DIR, 'review.json');
 const CHILDREN_FILE = path.join(DATA_DIR, 'children.json');
+const PROGRESS_FILE = path.join(DATA_DIR, 'progress.json');
+const MISTAKES_FILE = path.join(DATA_DIR, 'mistakes.json');
+const REWARDS_FILE = path.join(DATA_DIR, 'rewards.json');
 
 // No children ship with the app – each family creates their own profiles.
 const DEFAULT_CHILDREN = [];
 
-const VALID_SUBJECTS = ['math', 'hebrew'];
+const VALID_SUBJECTS = ['math', 'hebrew', 'english'];
 const VALID_MATH_LEVELS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
 // Keep a subjects array (a child may learn more than one subject). Falls back
@@ -33,12 +41,23 @@ function sanitizeLevel(level) {
   return VALID_MATH_LEVELS.includes(n) ? n : null;
 }
 
-// Ensure every child has subjects[] (derived from legacy `subject`) and a
-// mathLevel, so the rest of the app can rely on them being present.
+// Ensure every child has subjects[] (derived from legacy `subject`), a
+// mathLevel and a grade, so the rest of the app can rely on them being present.
 function normalizeChild(c) {
   if (!c || typeof c !== 'object') return c;
   const subjects = sanitizeSubjects(c.subjects, c.subject);
-  return { ...c, subjects, subject: subjects[0], mathLevel: sanitizeLevel(c.mathLevel) };
+  return {
+    ...c,
+    subjects,
+    subject: subjects[0],
+    mathLevel: sanitizeLevel(c.mathLevel),
+    grade: sanitizeGrade(c.grade),
+    englishLevel: sanitizeEnglishLevel(c.englishLevel),
+    hebrewLevel: sanitizeHebrewLevel(c.hebrewLevel),
+    mathStage: sanitizeMathStage(c.mathStage),
+    dailyPlan: sanitizeDailyPlan(c.dailyPlan),
+    planUntil: sanitizePlanUntil(c.planUntil),
+  };
 }
 
 function ensureDataDir() {
@@ -86,7 +105,7 @@ export function getChild(id) {
 }
 
 /** Add a new child. `seq` makes the id unique without relying on Date.now(). */
-export function addChild({ name, gender, subject, subjects, mathLevel, avatar, photo }) {
+export function addChild({ name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, avatar, photo }) {
   const list = readChildren();
   const base = 'kid';
   let n = 1;
@@ -99,6 +118,12 @@ export function addChild({ name, gender, subject, subjects, mathLevel, avatar, p
     subjects: subs,
     subject: subs[0],                 // kept in sync for back-compat
     mathLevel: sanitizeLevel(mathLevel),
+    grade: sanitizeGrade(grade),      // null | 'gan_to_a' | 'a_to_b'
+    englishLevel: sanitizeEnglishLevel(englishLevel),   // starting English stage 1-4
+    hebrewLevel: sanitizeHebrewLevel(hebrewLevel),      // starting Hebrew stage 1-4
+    mathStage: sanitizeMathStage(mathStage),            // starting prep-track math stage 1-4
+    dailyPlan: sanitizeDailyPlan(dailyPlan),            // e.g. {math: 20, english: 20}
+    planUntil: sanitizePlanUntil(planUntil),            // last day of the daily plan
     avatar: avatar || '',
     photo: photo || '',
     builtin: false,
@@ -108,7 +133,7 @@ export function addChild({ name, gender, subject, subjects, mathLevel, avatar, p
   return child;
 }
 
-export function updateChild(id, { name, gender, subject, subjects, mathLevel, avatar, photo }) {
+export function updateChild(id, { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, avatar, photo }) {
   const list = readChildren();
   const child = list.find(c => c.id === id);
   if (!child) return null;
@@ -122,6 +147,12 @@ export function updateChild(id, { name, gender, subject, subjects, mathLevel, av
     child.subject = child.subjects[0];
   }
   if (mathLevel !== undefined) child.mathLevel = sanitizeLevel(mathLevel);
+  if (grade !== undefined) child.grade = sanitizeGrade(grade);
+  if (englishLevel !== undefined) child.englishLevel = sanitizeEnglishLevel(englishLevel);
+  if (hebrewLevel !== undefined) child.hebrewLevel = sanitizeHebrewLevel(hebrewLevel);
+  if (mathStage !== undefined) child.mathStage = sanitizeMathStage(mathStage);
+  if (dailyPlan !== undefined) child.dailyPlan = sanitizeDailyPlan(dailyPlan);
+  if (planUntil !== undefined) child.planUntil = sanitizePlanUntil(planUntil);
   if (avatar !== undefined) child.avatar = avatar;
   if (photo !== undefined) child.photo = photo;
   writeChildren(list);
@@ -196,6 +227,212 @@ export function addWrongToReviewQueue(child, results) {
   // Cap queue at 30 to avoid unbounded growth
   data[child] = data[child].slice(-30);
   writeReviewQueue(data);
+}
+
+// === ADAPTIVE PROGRESS ===
+// Per child+subject: current prep-track stage and the consecutive-successful-
+// days streak that drives automatic level-ups (see exercises/curriculum.js).
+
+const progressKey = (child, subject) => `${child}:${subject || 'math'}`;
+
+function readProgressAll() {
+  ensureDataDir();
+  try { return JSON.parse(fs.readFileSync(PROGRESS_FILE, 'utf8')); }
+  catch { return {}; }
+}
+
+function writeProgressAll(data) {
+  ensureDataDir();
+  fs.writeFileSync(PROGRESS_FILE, JSON.stringify(data, null, 2));
+}
+
+export function getProgress(child, subject) {
+  const rec = readProgressAll()[progressKey(child, subject)];
+  return {
+    stage: rec?.stage || 1,
+    streak: rec?.streak || 0,
+    lastDate: rec?.lastDate || null,
+    lastDateSuccess: rec?.lastDateSuccess || false,
+  };
+}
+
+/**
+ * Fold a finished session into the child's progress and persist the result.
+ * Prep-track children climb a stage after enough successful days; leveled-
+ * math children get their mathLevel bumped to the next ceiling.
+ * Returns { stage, streak, levelUp } for the client to celebrate with.
+ */
+export function applySessionProgress(profile, subject, date, results) {
+  const record = getProgress(profile.id, subject);
+  // Each subject starts at the parent-chosen level; the record never trails it.
+  if (subject === 'english') {
+    record.stage = Math.max(record.stage, sanitizeEnglishLevel(profile.englishLevel));
+  } else if (subject === 'hebrew') {
+    record.stage = Math.max(record.stage, sanitizeHebrewLevel(profile.hebrewLevel));
+  } else if (profile.grade) {
+    record.stage = Math.max(record.stage, sanitizeMathStage(profile.mathStage));
+  }
+  const { record: next, levelUp } = foldSession(profile, subject, record, date, results);
+
+  const all = readProgressAll();
+  all[progressKey(profile.id, subject)] = next;
+  writeProgressAll(all);
+
+  if (levelUp?.mode === 'level') {
+    updateChild(profile.id, { mathLevel: levelUp.level });
+  }
+  // adaptive = this child+subject can actually level up (drives the client's
+  // "X more days and you level up!" banner).
+  const adaptive = !!profile.grade || (subject !== 'hebrew' && !!profile.mathLevel);
+  return { stage: next.stage, streak: next.streak, lastDateSuccess: next.lastDateSuccess, levelUp, adaptive };
+}
+
+// === DAILY PLAN (תכנית יומית לחופש הגדול) ===
+
+/** How many exercises the child answered today in a subject (incl. practice). */
+export function countTodayExercises(child, subject, date) {
+  const sessions = readHistory()[child] || [];
+  let n = 0;
+  for (const s of sessions) {
+    if (s.date !== date) continue;
+    if ((s.subject || 'math') !== subject) continue;
+    n += (s.results || []).length;
+  }
+  return n;
+}
+
+/**
+ * Today's plan status for a child: per-subject done/target and whether the
+ * whole day is complete. Returns null when no plan is active for `date`.
+ */
+export function getPlanStatus(profile, date) {
+  if (!planIsActive(profile, date)) return null;
+  const subjects = Object.entries(profile.dailyPlan).map(([subject, target]) => {
+    const done = countTodayExercises(profile.id, subject, date);
+    return { subject, target, done };
+  });
+  return {
+    date,
+    until: profile.planUntil,
+    subjects,
+    complete: subjects.every(s => s.done >= s.target),
+  };
+}
+
+// === REWARDS (מדבקות, הישגים, רצף) ===
+
+function readRewardsAll() {
+  ensureDataDir();
+  try { return JSON.parse(fs.readFileSync(REWARDS_FILE, 'utf8')); }
+  catch { return {}; }
+}
+
+function writeRewardsAll(data) {
+  ensureDataDir();
+  fs.writeFileSync(REWARDS_FILE, JSON.stringify(data, null, 2));
+}
+
+/**
+ * Award today's sticker if it was earned and not yet given. Children with an
+ * active daily plan earn it by completing the WHOLE day's plan; children
+ * without a plan earn it with their first finished session of the day.
+ * Returns the sticker emoji, or null.
+ */
+export function maybeAwardSticker(profile, date, planStatus) {
+  const all = readRewardsAll();
+  const rec = all[profile.id] || { stickers: [] };
+  if (rec.stickers.some(s => s.date === date)) return null;    // one per day
+  if (planIsActive(profile, date) && !planStatus?.complete) return null;
+
+  const emoji = pickNewSticker(rec.stickers.map(s => s.emoji));
+  rec.stickers.push({ emoji, date });
+  all[profile.id] = rec;
+  writeRewardsAll(all);
+  return emoji;
+}
+
+/** Stars, current streak, sticker album and achievements for one child. */
+export function getRewards(child) {
+  const sessions = readHistory()[child] || [];
+  const stickers = (readRewardsAll()[child] || { stickers: [] }).stickers;
+  const today = new Date().toISOString().slice(0, 10);
+  const stars = sessions.reduce((n, s) =>
+    n + (s.results || []).filter(r => r.firstAttemptCorrect !== false && r.correct).length, 0);
+  const streak = computePracticeStreak(sessions.map(s => s.date), today);
+  return {
+    stars,
+    streak,
+    stickers,
+    achievements: computeAchievements({ sessions, stickers, streak }),
+  };
+}
+
+// === MISTAKES COLLECTION (תרגול טעויות) ===
+// A persistent, per child+subject collection of every exercise the child got
+// wrong on first attempt, for on-demand practice. Unlike the review queue
+// (which pops items into the next session), this collection keeps an item
+// until the child answers it correctly on the first attempt somewhere.
+
+const MISTAKES_CAP = 60;
+const mistakeKey = (ex) => `${ex.type}|${ex.question}`;
+
+function readMistakesAll() {
+  ensureDataDir();
+  try { return JSON.parse(fs.readFileSync(MISTAKES_FILE, 'utf8')); }
+  catch { return {}; }
+}
+
+function writeMistakesAll(data) {
+  ensureDataDir();
+  fs.writeFileSync(MISTAKES_FILE, JSON.stringify(data, null, 2));
+}
+
+// Fold one session's results into a mistakes list (shared with backfill):
+// first-attempt mistakes join the collection, first-attempt successes clear
+// their matching entry (the child has mastered that exact question).
+function foldResultsIntoMistakes(list, results) {
+  for (const r of results || []) {
+    if (r.firstAttemptCorrect === false && r.exerciseSnapshot) {
+      const key = mistakeKey(r.exerciseSnapshot);
+      const existing = list.find(m => mistakeKey(m.exercise) === key);
+      if (existing) {
+        existing.wrongCount += 1;
+        existing.lastWrongAt = new Date().toISOString();
+      } else {
+        list.push({ exercise: r.exerciseSnapshot, wrongCount: 1, lastWrongAt: new Date().toISOString() });
+      }
+    } else if (r.firstAttemptCorrect !== false && r.correct) {
+      const key = `${r.type}|${r.question}`;
+      const idx = list.findIndex(m => mistakeKey(m.exercise) === key);
+      if (idx >= 0) list.splice(idx, 1);
+    }
+  }
+  return list.slice(-MISTAKES_CAP);
+}
+
+/** The child's current mistakes for a subject (backfilled from history once). */
+export function getMistakes(child, subject) {
+  const all = readMistakesAll();
+  const key = progressKey(child, subject);
+  if (all[key] === undefined) {
+    // First time: rebuild from the existing session history.
+    let list = [];
+    const sessions = readHistory()[child] || [];
+    for (const s of sessions) {
+      if ((s.subject || 'math') !== subject) continue;
+      list = foldResultsIntoMistakes(list, s.results);
+    }
+    all[key] = list;
+    writeMistakesAll(all);
+  }
+  return all[key];
+}
+
+export function updateMistakes(child, subject, results) {
+  const list = getMistakes(child, subject);   // ensures backfill happened
+  const all = readMistakesAll();
+  all[progressKey(child, subject)] = foldResultsIntoMistakes(list, results);
+  writeMistakesAll(all);
 }
 
 // === WEAKNESS / STATS ===

@@ -1,0 +1,85 @@
+.auth {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  background: linear-gradient(135deg, #6a5acd, #7e57c2 55%, #5c6bc0);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  background: #fff;
+  border-radius: 24px;
+  padding: 30px 28px 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: center;
+  animation: auth-pop 0.2s ease;
+}
+@keyframes auth-pop { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.auth-stars { font-size: 2.6rem; line-height: 1; }
+.auth-card h1 { margin: 0; font-size: 1.9rem; color: #5c6bc0; letter-spacing: 0.5px; }
+.auth-sub { margin: 0 0 6px; color: #777; font-size: 0.98rem; }
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: right;
+}
+.auth-field span { font-size: 0.85rem; font-weight: 700; color: #555; }
+.auth-field input {
+  border: 2px solid #e3e8ff;
+  border-radius: 11px;
+  padding: 12px 13px;
+  font-size: 1rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.auth-field input:focus { border-color: #5c6bc0; }
+
+.auth-error {
+  background: #ffebee;
+  color: #b71c1c;
+  padding: 9px 12px;
+  border-radius: 9px;
+  font-size: 0.88rem;
+}
+
+.auth-submit {
+  margin-top: 4px;
+  padding: 14px;
+  border: none;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #43a047, #00acc1);
+  color: #fff;
+  font-size: 1.08rem;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.12s, opacity 0.12s;
+}
+.auth-submit:hover:not(:disabled) { transform: translateY(-1px); }
+.auth-submit:disabled { opacity: 0.6; cursor: default; }
+
+.auth-toggle {
+  background: none;
+  border: none;
+  color: #5c6bc0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 4px;
+}
+.auth-toggle:hover { text-decoration: underline; }
+
+.auth-footer { color: rgba(255, 255, 255, 0.9); font-size: 0.85rem; }

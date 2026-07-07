@@ -252,6 +252,39 @@ const GENERATORS = {
       hint: `המילה היא "${word}". איזו אות חסרה במקום ה-_?`,
     };
   },
+  // Reading readiness – match a written word to its picture.
+  read_word: () => {
+    const candidates = Object.keys(WORD_EMOJI).filter(w => w.length <= 5);
+    const word = pick(candidates);
+    const wrong = shuffle(candidates.filter(w => w !== word)).slice(0, 3);
+    return {
+      type: 'read_word', difficulty: 2, dir: 'rtl',
+      question: `איזו מילה מתאימה לתמונה?`,
+      audioText: `איזו מילה מתאימה לתמונה?`,
+      displayImage: WORD_EMOJI[word],
+      answer: word,
+      options: shuffle([word, ...wrong]),
+      hint: `המילה מתחילה באות ${word[0]}`,
+    };
+  },
+  // Phonological awareness – closing sound (includes final-letter forms).
+  last_letter: () => {
+    const candidates = Object.keys(WORD_EMOJI).filter(w => w.length >= 3);
+    const word = pick(candidates);
+    const last = word[word.length - 1];
+    const wrongPool = 'אבגדהוזחטיכלמנסעפצקרשתךםןףץ'.split('').filter(l => l !== last);
+    const wrong = shuffle(wrongPool).slice(0, 3);
+    return {
+      type: 'last_letter', difficulty: 2, dir: 'rtl',
+      question: `מה האות האחרונה במילה "${word}"?`,
+      audioText: `מה האות האחרונה במילה ${word}?`,
+      displayWord: word,
+      displayImage: WORD_EMOJI[word],
+      answer: last,
+      options: shuffle([last, ...wrong]),
+      hint: `אמור את המילה "${word}" לאט והקשב לצליל האחרון`,
+    };
+  },
   fill_letter_choice: () => {
     const candidates = HEBREW_LETTERS.flatMap(l => l.words).filter(w => WORD_EMOJI[w]);
     const word = pick(candidates);
@@ -278,7 +311,51 @@ const TYPES_BY_DIFFICULTY = {
   3: ['type_letter', 'fill_letter'],
 };
 
-const ALL_TYPES = Object.values(TYPES_BY_DIFFICULTY).flat();
+const ALL_TYPES = [...Object.values(TYPES_BY_DIFFICULTY).flat(), 'read_word', 'last_letter'];
+
+// ── Prep-track stages (מסלולי הכנה) ─────────────────────────────────────────
+// Aligned with the MoE literacy foundations (תשתית לקראת קריאה וכתיבה):
+// letter recognition → opening sound → letters inside words → first reading.
+// Each stage defines its difficulty slots and which types each difficulty
+// may draw from. This is a global 4-stage ladder: the parent picks the
+// starting stage per child (hebrewLevel) and the adaptive mechanism climbs.
+const PREP_STAGES = {
+  // Stage 1 – הכרת האותיות
+  1: {
+    slots: [...Array(9).fill(1), ...Array(6).fill(2)],
+    pools: {
+      1: ['name_letter', 'find_letter', 'odd_one_out'],
+      2: ['word_starts_with', 'match_letter'],
+    },
+  },
+  // Stage 2 – צליל פותח
+  2: {
+    slots: [...Array(6).fill(1), ...Array(7).fill(2), ...Array(2).fill(3)],
+    pools: {
+      1: ['name_letter', 'find_letter', 'odd_one_out'],
+      2: ['word_starts_with', 'match_letter', 'first_letter_of_word', 'count_letter'],
+      3: ['type_letter'],
+    },
+  },
+  // Stage 3 – אותיות בתוך מילים / קריאת מילים
+  3: {
+    slots: [...Array(4).fill(1), ...Array(7).fill(2), ...Array(4).fill(3)],
+    pools: {
+      1: ['name_letter', 'find_letter', 'odd_one_out'],
+      2: ['word_starts_with', 'match_letter', 'first_letter_of_word', 'count_letter', 'fill_letter_choice', 'read_word'],
+      3: ['type_letter', 'fill_letter'],
+    },
+  },
+  // Stage 4 – קריאה ראשונה / אוצר מילים וכתיבה
+  4: {
+    slots: [...Array(2).fill(1), ...Array(7).fill(2), ...Array(6).fill(3)],
+    pools: {
+      1: ['odd_one_out', 'find_letter'],
+      2: ['read_word', 'last_letter', 'fill_letter_choice', 'first_letter_of_word', 'count_letter', 'word_starts_with'],
+      3: ['type_letter', 'fill_letter'],
+    },
+  },
+};
 
 function getExerciseSlots() {
   const today = new Date().toISOString().slice(0, 10);
@@ -290,8 +367,27 @@ function getExerciseSlots() {
   return [...Array(4).fill(1), ...Array(5).fill(2), ...Array(2).fill(3)];
 }
 
-export function generateHebrewExercises(weakness = {}, reviewExercises = []) {
-  const slots = getExerciseSlots();
+/**
+ * `stage` (1-4, optional): the child's Hebrew ladder stage. Accepts either a
+ * plain number or the legacy { stage } object; falsy keeps the legacy mix.
+ * `track`: the same stage is HARDER for an a_to_b child (rising 2nd grader)
+ * than for a gan_to_a child — easy recognition slots are upgraded to harder
+ * exercise families, since an older child works at a higher baseline.
+ */
+export function generateHebrewExercises(weakness = {}, reviewExercises = [], stage = null, track = null) {
+  let slots = getExerciseSlots();
+  let pools = TYPES_BY_DIFFICULTY;
+  const s = typeof stage === 'object' && stage !== null ? stage.stage : stage;
+  if (s) {
+    const stagePlan = PREP_STAGES[Math.min(Math.max(1, Number(s)), 4)];
+    slots = [...stagePlan.slots];
+    pools = stagePlan.pools;
+    if (track === 'a_to_b') {
+      // Same stage, older child: every easy (difficulty-1) slot becomes a
+      // medium slot when the stage has medium content to offer.
+      slots = slots.map(d => (d === 1 && pools[2]?.length ? 2 : d));
+    }
+  }
 
   const reviewCount = Math.min(reviewExercises.length, 3);
   const reviewSlot = reviewExercises.slice(0, reviewCount);
@@ -315,8 +411,8 @@ export function generateHebrewExercises(weakness = {}, reviewExercises = []) {
   const MAX_PER_TYPE = 2;
 
   function pickAllowedType(difficulty) {
-    const pool = TYPES_BY_DIFFICULTY[difficulty].filter(t => (typeCount[t] || 0) < MAX_PER_TYPE);
-    return pool.length ? pick(pool) : pick(TYPES_BY_DIFFICULTY[difficulty]);
+    const pool = pools[difficulty].filter(t => (typeCount[t] || 0) < MAX_PER_TYPE);
+    return pool.length ? pick(pool) : pick(pools[difficulty]);
   }
 
   const remainingSlots = slots.slice(reviewCount);

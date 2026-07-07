@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { addChild, updateChild, removeBackground, IS_WEB } from '../api';
+import { PREP_TRACKS, HEBREW_STAGE_NAMES } from '../../../server/exercises/curriculum.js';
 import './AddChildModal.css';
 
 // Kid-friendly avatar choices (always available).
@@ -11,6 +12,28 @@ const AVATARS = [
 
 // Focused addition/subtraction ceilings the parent can choose from.
 const MATH_LEVELS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+
+// Preparation tracks aligned with the MoE curriculum. When one is chosen the
+// difficulty climbs automatically (3 successful days in a row = next stage).
+const GRADE_OPTIONS = [
+  { value: 'none', label: 'ללא מסלול — לפי רמה ידנית' },
+  { value: 'gan_to_a', label: '🌱 עולה מגן חובה לכיתה א׳' },
+  { value: 'a_to_b', label: '📗 עולה מכיתה א׳ לכיתה ב׳' },
+];
+
+// English starting stage (Foundation Level). The level climbs automatically
+// from here as the child succeeds.
+const ENGLISH_LEVEL_OPTIONS = [
+  { value: 1, label: '1 — אותיות ראשונות (מתחילים)' },
+  { value: 2, label: '2 — מילים ראשונות' },
+  { value: 3, label: '3 — קוראים וכותבים' },
+  { value: 4, label: '4 — מרחיבים אוצר מילים' },
+  { value: 5, label: '5 — משפטים וכתיבה (מתקדמים)' },
+  { value: 6, label: '6 — שליטה באנגלית (הכי קשה)' },
+];
+
+const SUBJECT_NAMES = { math: '➕ חשבון', hebrew: '🔤 עברית', english: '🇬🇧 אנגלית' };
+const PLAN_DEFAULT_UNTIL = '2026-08-31';   // סוף החופש הגדול
 
 // Render any File or data-URL into a centered square PNG of the given size.
 // PNG (not JPEG) so a transparent background from the cut-out is preserved.
@@ -50,6 +73,13 @@ export default function AddChildModal({ onClose, onSaved, editChild }) {
   const [gender, setGender] = useState(editChild?.gender || 'boy');
   const [subjects, setSubjects] = useState(initialSubjects);
   const [mathLevel, setMathLevel] = useState(editChild?.mathLevel ?? null);   // null = mixed
+  const [grade, setGrade] = useState(editChild?.grade ?? null);               // null = no prep track
+  const [englishLevel, setEnglishLevel] = useState(editChild?.englishLevel ?? 1);
+  const [hebrewLevel, setHebrewLevel] = useState(editChild?.hebrewLevel ?? 1);
+  const [mathStage, setMathStage] = useState(editChild?.mathStage ?? 1);
+  // Daily summer plan: exercises-per-day per subject (0 = no requirement).
+  const [dailyPlan, setDailyPlan] = useState(editChild?.dailyPlan || null);
+  const [planUntil, setPlanUntil] = useState(editChild?.planUntil || PLAN_DEFAULT_UNTIL);
   const [avatar, setAvatar] = useState(editChild?.avatar || AVATARS[0]);
   const [photo, setPhoto] = useState(editChild?.photo || '');   // data URL or path when set
   const [saving, setSaving] = useState(false);
@@ -108,7 +138,16 @@ export default function AddChildModal({ onClose, onSaved, editChild }) {
     setSaving(true);
     setError(null);
     try {
-      const base = { name: name.trim(), gender, subjects, mathLevel };
+      // Only keep plan quotas for subjects the child actually learns.
+      const plan = {};
+      for (const s of subjects) {
+        if (dailyPlan?.[s] > 0) plan[s] = dailyPlan[s];
+      }
+      const base = {
+        name: name.trim(), gender, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage,
+        dailyPlan: Object.keys(plan).length ? plan : null,
+        planUntil,
+      };
       // Photo and avatar are mutually exclusive in what we store.
       const payload = photo
         ? { ...base, photo, avatar: '' }
@@ -194,10 +233,83 @@ export default function AddChildModal({ onClose, onSaved, editChild }) {
               className={`toggle-btn ${subjects.includes('hebrew') ? 'on' : ''}`}
               onClick={() => toggleSubject('hebrew')}
             >🔤 עברית</button>
+            <button
+              type="button"
+              className={`toggle-btn ${subjects.includes('english') ? 'on' : ''}`}
+              onClick={() => toggleSubject('english')}
+            >🇬🇧 אנגלית</button>
           </div>
         </div>
 
-        {subjects.includes('math') && (
+        {subjects.includes('hebrew') && (
+          <label className="field">
+            <span>רמת עברית</span>
+            <select
+              className="level-select"
+              value={hebrewLevel}
+              onChange={e => setHebrewLevel(Number(e.target.value))}
+            >
+              {HEBREW_STAGE_NAMES.map((n, i) => (
+                <option key={i} value={i + 1}>{i + 1} — {n}</option>
+              ))}
+            </select>
+            <small className="field-hint">רמת ההתחלה — עולה לבד לפי ההצלחה 🚀</small>
+          </label>
+        )}
+
+        {subjects.includes('english') && (
+          <label className="field">
+            <span>רמת אנגלית</span>
+            <select
+              className="level-select"
+              value={englishLevel}
+              onChange={e => setEnglishLevel(Number(e.target.value))}
+            >
+              {ENGLISH_LEVEL_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <small className="field-hint">
+              הרמה עולה לבד אחרי 3 ימי הצלחה רצופים, עם הקראה באנגלית אמיתית 🔊
+            </small>
+          </label>
+        )}
+
+        <label className="field">
+          <span>🎓 מסלול הכנה לכיתה</span>
+          <select
+            className="level-select"
+            value={grade ?? 'none'}
+            onChange={e => setGrade(e.target.value === 'none' ? null : e.target.value)}
+          >
+            {GRADE_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          {grade && (
+            <small className="field-hint">
+              התרגילים לפי תכנית הלימודים של משרד החינוך, והרמה עולה לבד אחרי 3 ימי הצלחה רצופים 🚀
+            </small>
+          )}
+        </label>
+
+        {subjects.includes('math') && grade && (
+          <label className="field">
+            <span>שלב התחלה בחשבון</span>
+            <select
+              className="level-select"
+              value={mathStage}
+              onChange={e => setMathStage(Number(e.target.value))}
+            >
+              {(PREP_TRACKS[grade]?.stageNames || []).map((n, i) => (
+                <option key={i} value={i + 1}>{i + 1} — {n}</option>
+              ))}
+            </select>
+            <small className="field-hint">מכאן מתחילים — והרמה ממשיכה לטפס לבד 🚀</small>
+          </label>
+        )}
+
+        {subjects.includes('math') && !grade && (
           <label className="field">
             <span>רמת חשבון</span>
             <select
@@ -212,6 +324,37 @@ export default function AddChildModal({ onClose, onSaved, editChild }) {
             </select>
           </label>
         )}
+
+        <div className="field">
+          <span>🗓️ תכנית יומית לחופש הגדול <small className="field-hint">(0 = בלי חובה יומית)</small></span>
+          <div className="plan-rows">
+            {subjects.map(s => (
+              <label key={s} className="plan-row">
+                <span className="plan-subject">{SUBJECT_NAMES[s]}</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  className="plan-count"
+                  value={dailyPlan?.[s] ?? 0}
+                  onChange={e => setDailyPlan(p => ({ ...(p || {}), [s]: Number(e.target.value) }))}
+                />
+                <span className="plan-unit">תרגילים ביום</span>
+              </label>
+            ))}
+          </div>
+          {subjects.some(s => dailyPlan?.[s] > 0) && (
+            <label className="plan-row">
+              <span className="plan-subject">עד תאריך</span>
+              <input
+                type="date"
+                className="plan-until"
+                value={planUntil}
+                onChange={e => setPlanUntil(e.target.value || PLAN_DEFAULT_UNTIL)}
+              />
+            </label>
+          )}
+        </div>
 
         {error && <div className="modal-error">{error}</div>}
 

@@ -12,24 +12,25 @@ export function cleanForSpeech(text) {
     .trim();
 }
 
-function speakViaWebAPI(text) {
+function speakViaWebAPI(text, lang = 'he') {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   const cleaned = cleanForSpeech(text);
   if (!cleaned) return;
   window.speechSynthesis.cancel();
   setTimeout(() => {
     const utter = new SpeechSynthesisUtterance(cleaned);
-    utter.lang = 'he-IL';
+    const wanted = lang === 'en' ? 'en' : 'he';
+    utter.lang = wanted === 'en' ? 'en-US' : 'he-IL';
     utter.rate = 0.85;
     utter.pitch = 1.05;
     utter.volume = 1;
     const voices = window.speechSynthesis.getVoices();
-    const heVoice =
-      voices.find(v => v.lang === 'he-IL') ||
-      voices.find(v => v.lang?.toLowerCase().startsWith('he'));
-    if (heVoice) {
-      utter.voice = heVoice;
-      utter.lang = heVoice.lang;
+    const voice =
+      voices.find(v => v.lang === utter.lang) ||
+      voices.find(v => v.lang?.toLowerCase().startsWith(wanted));
+    if (voice) {
+      utter.voice = voice;
+      utter.lang = voice.lang;
     }
     window.speechSynthesis.speak(utter);
   }, 50);
@@ -47,7 +48,7 @@ export function stopSpeech() {
 
 const WEB = import.meta.env.VITE_TARGET === 'web';
 
-export function speakHebrew(text) {
+function speakText(text, lang) {
   const cleaned = cleanForSpeech(text);
   if (!cleaned) return;
 
@@ -55,24 +56,33 @@ export function speakHebrew(text) {
 
   // The static web version has no server TTS proxy – use the browser voice.
   if (WEB) {
-    speakViaWebAPI(text);
+    speakViaWebAPI(text, lang);
     return;
   }
 
-  const url = `/api/tts?text=${encodeURIComponent(cleaned)}`;
+  const url = `/api/tts?text=${encodeURIComponent(cleaned)}${lang === 'en' ? '&lang=en' : ''}`;
   const audio = new Audio(url);
   audio.preload = 'auto';
   _currentAudio = audio;
 
   audio.play().catch(err => {
     console.warn('[TTS] online failed, trying Web Speech API:', err?.message || err);
-    speakViaWebAPI(text);
+    speakViaWebAPI(text, lang);
   });
 
   audio.onerror = () => {
     console.warn('[TTS] audio playback error – falling back to Web Speech API');
-    speakViaWebAPI(text);
+    speakViaWebAPI(text, lang);
   };
+}
+
+export function speakHebrew(text) {
+  speakText(text, 'he');
+}
+
+/** Speak English text with an English voice – used by the English exercises. */
+export function speakEnglish(text) {
+  speakText(text, 'en');
 }
 
 const CHEERS = [

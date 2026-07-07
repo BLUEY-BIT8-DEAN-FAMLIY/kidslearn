@@ -7,10 +7,11 @@ const WEB = import.meta.env.VITE_TARGET === 'web';
 const BASE = '/api';
 
 // ── Server implementations ──────────────────────────────────────────────
-async function serverFetchExercises(child, date, subject) {
+async function serverFetchExercises(child, date, subject, operation) {
   const params = new URLSearchParams();
   if (date) params.set('date', date);
   if (subject) params.set('subject', subject);
+  if (operation) params.set('op', operation);
   const qs = params.toString();
   const url = qs ? `${BASE}/exercises/${child}?${qs}` : `${BASE}/exercises/${child}`;
   const res = await fetch(url);
@@ -42,6 +43,18 @@ async function serverFetchHistory(child) {
 async function serverFetchChildren() {
   const res = await fetch(`${BASE}/children`);
   if (!res.ok) throw new Error('Failed to fetch children');
+  return res.json();
+}
+
+async function serverFetchMistakes(child) {
+  const res = await fetch(`${BASE}/mistakes/${child}`);
+  if (!res.ok) throw new Error('Failed to fetch mistakes');
+  return res.json();
+}
+
+async function serverFetchRewards(child) {
+  const res = await fetch(`${BASE}/rewards/${child}`);
+  if (!res.ok) throw new Error('Failed to fetch rewards');
   return res.json();
 }
 
@@ -123,12 +136,59 @@ async function serverSaveBgConfig(cfg) {
   return data;
 }
 
+// ── Accounts (register / login) ───────────────────────────────────────────
+async function serverAuthStatus() {
+  try { const res = await fetch(`${BASE}/auth/status`); return res.json(); }
+  catch { return { hasUsers: false }; }
+}
+
+async function serverRegister(email, password, name) {
+  const res = await fetch(`${BASE}/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, name }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'ההרשמה נכשלה');
+  return data; // { ok, token, user }
+}
+
+async function serverLogin(email, password) {
+  const res = await fetch(`${BASE}/auth/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'ההתחברות נכשלה');
+  return data; // { ok, token, user }
+}
+
+async function serverMe(token) {
+  const res = await fetch(`${BASE}/auth/me`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) return { ok: false };
+  return res.json(); // { ok, user }
+}
+
+async function serverLogout(token) {
+  try {
+    await fetch(`${BASE}/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ token }),
+    });
+  } catch {}
+  return { ok: true };
+}
+
 // ── Public API (picks local or server) ──────────────────────────────────
 export const fetchExercises   = WEB ? local.fetchExercises   : serverFetchExercises;
 export const saveSession      = WEB ? local.saveSession      : serverSaveSession;
 export const fetchStats       = WEB ? local.fetchStats       : serverFetchStats;
 export const fetchHistory     = WEB ? local.fetchHistory     : serverFetchHistory;
 export const fetchChildren    = WEB ? local.fetchChildren    : serverFetchChildren;
+export const fetchMistakes    = WEB ? local.fetchMistakes    : serverFetchMistakes;
+export const fetchRewards     = WEB ? local.fetchRewards     : serverFetchRewards;
 export const addChild         = WEB ? local.addChild         : serverAddChild;
 export const updateChild      = WEB ? local.updateChild      : serverUpdateChild;
 export const deleteChild      = WEB ? local.deleteChild      : serverDeleteChild;
@@ -138,5 +198,10 @@ export const testEmail        = WEB ? local.testEmail        : serverTestEmail;
 export const removeBackground = WEB ? local.removeBackground : serverRemoveBackground;
 export const fetchBgConfig    = WEB ? local.fetchBgConfig    : serverFetchBgConfig;
 export const saveBgConfig     = WEB ? local.saveBgConfig     : serverSaveBgConfig;
+export const authStatus       = WEB ? local.authStatus       : serverAuthStatus;
+export const registerAccount  = WEB ? local.registerAccount  : serverRegister;
+export const loginAccount     = WEB ? local.loginAccount     : serverLogin;
+export const meAccount        = WEB ? local.meAccount        : serverMe;
+export const logoutAccount    = WEB ? local.logoutAccount    : serverLogout;
 
 export const IS_WEB = WEB;

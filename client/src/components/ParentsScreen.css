@@ -238,3 +238,60 @@
   padding: 40px;
   color: #666;
 }
+
+/* 14-day activity chart */
+.activity-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 10px 4px 0;
+}
+.activity-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.activity-count { font-size: 0.7rem; color: #888; min-height: 14px; }
+.activity-bar {
+  width: 100%;
+  max-width: 26px;
+  background: #e0e4f5;
+  border-radius: 6px 6px 2px 2px;
+  transition: height 0.3s;
+}
+.activity-bar.active { background: linear-gradient(180deg, #7986cb, #5c6bc0); }
+.activity-day { font-size: 0.72rem; color: #999; }
+
+/* Daily quota editor */
+.quota-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.quota-row { display: flex; align-items: center; gap: 10px; }
+.quota-name { min-width: 100px; font-weight: 600; }
+.quota-row input[type="number"] {
+  width: 74px;
+  padding: 8px 10px;
+  border: 2px solid #e0e4f5;
+  border-radius: 10px;
+  font-size: 1rem;
+  text-align: center;
+}
+.quota-row input[type="date"] {
+  padding: 8px 10px;
+  border: 2px solid #e0e4f5;
+  border-radius: 10px;
+  font-size: 0.95rem;
+}
+.quota-unit { color: #777; font-size: 0.9rem; }
+.quota-save {
+  background: #5c6bc0;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 22px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.quota-save:hover { background: #3f51b5; }
+.quota-save:disabled { opacity: 0.6; }

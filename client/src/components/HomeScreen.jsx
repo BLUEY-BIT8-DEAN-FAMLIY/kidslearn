@@ -1,11 +1,18 @@
 import { useState, useEffect } from 'react';
 import { fetchChildren, deleteChild, IS_WEB } from '../api';
 import AddChildModal from './AddChildModal';
+import RewardsModal from './RewardsModal';
 import './HomeScreen.css';
 
 const SUBJECT_DESC = {
   math: { desc: 'חשבון', tag: 'תרגילי חשבון', icon: '➕' },
   hebrew: { desc: 'עברית', tag: 'תרגילי אותיות', icon: '🔤' },
+  english: { desc: 'אנגלית', tag: 'English', icon: '🇬🇧' },
+};
+
+const GRADE_TAGS = {
+  gan_to_a: '🎓 הכנה לכיתה א׳',
+  a_to_b: '🎓 הכנה לכיתה ב׳',
 };
 
 function subjectsOf(child) {
@@ -14,13 +21,14 @@ function subjectsOf(child) {
     : [child.subject || 'math'];
 }
 
-export default function HomeScreen({ onSelect, onParents }) {
+export default function HomeScreen({ onSelect, onMistakes, onParents }) {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editingChild, setEditingChild] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [pickingSubjectFor, setPickingSubjectFor] = useState(null);
+  const [rewardsFor, setRewardsFor] = useState(null);
 
   function load() {
     fetchChildren()
@@ -70,7 +78,8 @@ export default function HomeScreen({ onSelect, onParents }) {
         {!loading && children.map(child => {
           const subs = subjectsOf(child);
           const desc = subs.map(s => SUBJECT_DESC[s]?.desc || s).join(' · ');
-          const tag = subs.length > 1 ? '✨ בחירת מקצוע' : (SUBJECT_DESC[subs[0]]?.tag || '');
+          const tag = GRADE_TAGS[child.grade]
+            || (subs.length > 1 ? '✨ בחירת מקצוע' : (SUBJECT_DESC[subs[0]]?.tag || ''));
           return (
             <button
               key={child.id}
@@ -90,10 +99,40 @@ export default function HomeScreen({ onSelect, onParents }) {
                   >✏️</span>
                 </>
               )}
+              {!editMode && (
+                <>
+                  <span
+                    className="card-mistakes"
+                    title="תרגול טעויות"
+                    onClick={e => { e.stopPropagation(); onMistakes(child.id, child.name); }}
+                  >🔁</span>
+                  <span
+                    className="card-rewards"
+                    title="אלבום מדבקות והישגים"
+                    onClick={e => { e.stopPropagation(); setRewardsFor(child); }}
+                  >🏆</span>
+                </>
+              )}
               {photoFor(child)}
               <div className="child-name">{child.name}</div>
               <div className="child-desc">{desc}</div>
               <div className="child-tag">{tag}</div>
+              {child.todayPlan && (
+                <div className="plan-progress">
+                  {child.todayPlan.complete ? (
+                    <div className="plan-done">🏖️ המשימות של היום הושלמו!</div>
+                  ) : (
+                    child.todayPlan.subjects.map(p => (
+                      <div key={p.subject} className={`plan-line ${p.done >= p.target ? 'ok' : ''}`}>
+                        <span>{SUBJECT_DESC[p.subject]?.icon} {SUBJECT_DESC[p.subject]?.desc}</span>
+                        <span className="plan-nums">
+                          {Math.min(p.done, p.target)}/{p.target} {p.done >= p.target ? '✓' : ''}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </button>
           );
         })}
@@ -133,7 +172,7 @@ export default function HomeScreen({ onSelect, onParents }) {
               {subjectsOf(pickingSubjectFor).map(s => (
                 <button
                   key={s}
-                  className={`subject-pick-btn ${s === 'hebrew' ? 'hebrew' : 'math'}`}
+                  className={`subject-pick-btn ${['hebrew', 'english'].includes(s) ? s : 'math'}`}
                   onClick={() => {
                     const c = pickingSubjectFor;
                     setPickingSubjectFor(null);
@@ -147,6 +186,14 @@ export default function HomeScreen({ onSelect, onParents }) {
             </div>
           </div>
         </div>
+      )}
+
+      {rewardsFor && (
+        <RewardsModal
+          child={rewardsFor.id}
+          childName={rewardsFor.name}
+          onClose={() => setRewardsFor(null)}
+        />
       )}
 
       {(showAdd || editingChild) && (

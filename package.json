@@ -1,7 +1,7 @@
 {
   "name": "kidslearn",
   "productName": "KidsLearn",
-  "version": "1.0.2",
+  "version": "1.2.0",
   "description": "אפליקציית לימוד יומית לילדים",
   "main": "electron/main.cjs",
   "private": true,

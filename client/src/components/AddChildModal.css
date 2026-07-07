@@ -221,3 +221,27 @@
   background-size: 16px 16px;
   background-position: 0 0, 0 8px, 8px -8px, -8px 0;
 }
+
+/* Daily summer plan rows */
+.plan-rows { display: flex; flex-direction: column; gap: 6px; }
+.plan-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.plan-subject { min-width: 92px; font-weight: 600; }
+.plan-count {
+  width: 70px;
+  padding: 8px 10px;
+  border: 2px solid #e0e4f5;
+  border-radius: 10px;
+  font-size: 1rem;
+  text-align: center;
+}
+.plan-unit { color: #777; font-size: 0.9rem; }
+.plan-until {
+  padding: 8px 10px;
+  border: 2px solid #e0e4f5;
+  border-radius: 10px;
+  font-size: 0.95rem;
+}

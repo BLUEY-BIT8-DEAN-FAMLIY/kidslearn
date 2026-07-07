@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { fetchStats, fetchHistory, fetchChildren, IS_WEB } from '../api';
+import { fetchStats, fetchHistory, fetchChildren, updateChild, IS_WEB } from '../api';
+import { PREP_TRACKS, stageName, STREAK_TO_ADVANCE, HEBREW_STAGES, ENGLISH_STAGES } from '../../../server/exercises/curriculum.js';
 import EmailSettings from './EmailSettings';
 import BgRemovalSettings from './BgRemovalSettings';
 import './ParentsScreen.css';
@@ -34,6 +35,23 @@ const TYPE_LABELS = {
   geo_corners: 'גאומטריה – פינות',
   geo_identify: 'גאומטריה – זיהוי צורה',
   geo_count_sides_compare: 'גאומטריה – השוואה',
+  geo_count: 'גאומטריה – ספירת צורות',
+  count_objects: 'ספירת חפצים',
+  compare_quantities: 'השוואת כמויות',
+  number_after: 'המספר שאחרי',
+  number_before: 'המספר שלפני',
+  visual_add: 'חיבור עם ציורים',
+  visual_sub: 'חיסור עם ציורים',
+  pattern: 'חוקיות (דגם חוזר)',
+  biggest_number: 'המספר הגדול ביותר',
+  smallest_number: 'המספר הקטן ביותר',
+  round_tens_add: 'חיבור עשרות שלמות',
+  round_tens_sub: 'חיסור עשרות שלמות',
+  two_digit_add: 'חיבור דו-ספרתי',
+  two_digit_sub: 'חיסור דו-ספרתי',
+  missing_number: 'מספר חסר בתרגיל',
+  even_odd: 'זוגי או אי-זוגי',
+  repeated_add: 'חיבור חוזר (לקראת כפל)',
   name_letter: 'שם האות',
   word_starts_with: 'מילה שמתחילה ב-',
   fill_letter: 'השלמת אות במילה',
@@ -44,7 +62,169 @@ const TYPE_LABELS = {
   count_letter: 'ספירת אותיות',
   first_letter_of_word: 'אות ראשונה',
   odd_one_out: 'מה שונה',
+  read_word: 'קריאת מילה',
+  last_letter: 'אות אחרונה',
+  en_letter_name: 'אנגלית – שם האות',
+  en_letter_find: 'אנגלית – מציאת אות',
+  en_first_letter: 'אנגלית – אות פותחת',
+  en_word_to_pic: 'אנגלית – מילה לתמונה',
+  en_pic_to_word: 'אנגלית – תמונה למילה',
+  en_listen_pick: 'אנגלית – הבנת הנשמע',
+  en_translate_to_he: 'אנגלית – תרגום לעברית',
+  en_translate_to_en: 'אנגלית – תרגום לאנגלית',
+  en_missing_letter: 'אנגלית – אות חסרה',
+  en_spell: 'אנגלית – כתיבת מילה',
 };
+
+const PLAN_SUBJECT_NAMES = { math: '➕ חשבון', hebrew: '🔤 עברית', english: '🇬🇧 אנגלית' };
+
+// Quick daily-quota editor: the parent can raise/lower each subject's daily
+// exercise count right from the parents area (0 = no daily requirement).
+function PlanEditor({ profile, onSaved }) {
+  const [plan, setPlan] = useState(null);
+  const [until, setUntil] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [savedMsg, setSavedMsg] = useState(false);
+
+  useEffect(() => {
+    setPlan({ ...(profile?.dailyPlan || {}) });
+    setUntil(profile?.planUntil || '2026-08-31');
+    setSavedMsg(false);
+  }, [profile?.id]);
+
+  if (!profile || !plan) return null;
+  const subjects = Array.isArray(profile.subjects) && profile.subjects.length
+    ? profile.subjects
+    : [profile.subject || 'math'];
+
+  async function save() {
+    setSaving(true);
+    try {
+      const cleaned = {};
+      for (const s of subjects) if (plan[s] > 0) cleaned[s] = Number(plan[s]);
+      const { child } = await updateChild(profile.id, {
+        dailyPlan: Object.keys(cleaned).length ? cleaned : null,
+        planUntil: until,
+      });
+      onSaved(child);
+      setSavedMsg(true);
+      setTimeout(() => setSavedMsg(false), 2500);
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="section">
+      <h2>🗓️ מכסת תרגילים יומית — {profile.name}</h2>
+      <div className="quota-rows">
+        {subjects.map(s => (
+          <label key={s} className="quota-row">
+            <span className="quota-name">{PLAN_SUBJECT_NAMES[s] || s}</span>
+            <input
+              type="number" min="0" max="50"
+              value={plan[s] ?? 0}
+              onChange={e => setPlan(p => ({ ...p, [s]: Number(e.target.value) }))}
+            />
+            <span className="quota-unit">תרגילים ביום</span>
+          </label>
+        ))}
+        <label className="quota-row">
+          <span className="quota-name">עד תאריך</span>
+          <input type="date" value={until} onChange={e => setUntil(e.target.value)} />
+        </label>
+      </div>
+      <button className="quota-save" onClick={save} disabled={saving}>
+        {saving ? 'שומר...' : savedMsg ? '✓ נשמר!' : '💾 שמור מכסה'}
+      </button>
+      <div className="hint-text">💡 0 = בלי חובה יומית. המפגשים מתאימים את עצמם למכסה אוטומטית.</div>
+    </div>
+  );
+}
+
+// Exercises per day, last 14 days — the parent sees the practice rhythm at a
+// glance (research: consistency beats intensity for young learners).
+function ActivityChart({ history }) {
+  const days = [];
+  const now = new Date();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const counts = days.map(date =>
+    (history || [])
+      .filter(s => s.date === date)
+      .reduce((n, s) => n + (s.results || []).length, 0));
+  const max = Math.max(...counts, 1);
+  if (!counts.some(c => c > 0)) return null;
+
+  return (
+    <div className="section">
+      <h2>📊 פעילות ב-14 הימים האחרונים</h2>
+      <div className="activity-chart" dir="ltr">
+        {days.map((date, i) => (
+          <div key={date} className="activity-col" title={`${date}: ${counts[i]} תרגילים`}>
+            <span className="activity-count">{counts[i] || ''}</span>
+            <div
+              className={`activity-bar ${counts[i] > 0 ? 'active' : ''}`}
+              style={{ height: `${Math.max(4, (counts[i] / max) * 90)}px` }}
+            />
+            <span className="activity-day">{Number(date.slice(8, 10))}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Current stage + streak per adaptive subject: prep-track math/hebrew and the
+// global English ladder (English adapts for every child who learns it).
+function ProgressSection({ profile, progress }) {
+  if (!profile || !progress) return null;
+  const track = PREP_TRACKS[profile.grade];
+  const subjects = Array.isArray(profile.subjects) && profile.subjects.length
+    ? profile.subjects
+    : [profile.subject || 'math'];
+
+  const rows = subjects
+    .filter(s => (s === 'math' ? !!track : true))
+    .map(s => {
+      const p = progress[s] || { stage: 1, streak: 0 };
+      const stage = s === 'english'
+        ? Math.max(p.stage, profile.englishLevel || 1)
+        : s === 'hebrew'
+          ? Math.max(p.stage, profile.hebrewLevel || 1)
+          : Math.max(p.stage, profile.mathStage || 1);
+      const total = s === 'english' ? ENGLISH_STAGES : s === 'hebrew' ? HEBREW_STAGES : track.mathStages;
+      const icon = s === 'english' ? '🇬🇧 אנגלית' : s === 'hebrew' ? '🔤 עברית' : '➕ חשבון';
+      return { s, icon, stage, total, name: stageName(profile.grade, s, stage), streak: p.streak };
+    });
+
+  if (!rows.length) return null;
+
+  return (
+    <div className="section">
+      <h2>🎓 התקדמות{track ? ` — ${track.label}` : ''}</h2>
+      <div className="topic-list">
+        {rows.map(r => (
+          <div key={r.s} className="topic-row">
+            <span className="topic-name">
+              {r.icon}: שלב {r.stage} מתוך {r.total} — {r.name}
+            </span>
+            <span className="topic-stats">
+              🔥 רצף ימי הצלחה: {r.streak}/{STREAK_TO_ADVANCE}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="hint-text">
+        💡 אחרי {STREAK_TO_ADVANCE} ימי תרגול מוצלחים ברצף (80% ומעלה בניסיון ראשון) עולים שלב אוטומטית.
+      </div>
+    </div>
+  );
+}
 
 export default function ParentsScreen({ onBack }) {
   const [children, setChildren] = useState([]);
@@ -138,6 +318,15 @@ export default function ParentsScreen({ onBack }) {
               {childName} עדיין לא ביצע/ה תרגילים. כשתסיים/י מפגש – הנתונים יופיעו כאן.
             </div>
           )}
+
+          <ProgressSection profile={activeProfile} progress={stats.progress} />
+
+          <PlanEditor
+            profile={activeProfile}
+            onSaved={(child) => setChildren(cs => cs.map(c => (c.id === child.id ? child : c)))}
+          />
+
+          <ActivityChart history={history} />
 
           {weakTypes.length > 0 && (
             <div className="section">

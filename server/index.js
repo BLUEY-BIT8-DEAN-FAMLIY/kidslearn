@@ -4,13 +4,22 @@ import nodemailer from 'nodemailer';
 import https from 'https';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { generateMathExercises } from './exercises/mathGenerator.js';
+import { generateMathExercises, generatePrepMath } from './exercises/mathGenerator.js';
 import { generateHebrewExercises } from './exercises/hebrewGenerator.js';
+import { generateEnglishExercises } from './exercises/englishGenerator.js';
+import { fitSessionToCount, planIsActive } from './exercises/curriculum.js';
 import {
   saveSession, computeWeakness, getStats, readHistory, readConfig, writeConfig,
   popReviewQueue, addWrongToReviewQueue,
   readChildren, getChild, addChild, updateChild, deleteChild,
+  getProgress, applySessionProgress,
+  getMistakes, updateMistakes,
+  countTodayExercises, getPlanStatus,
+  maybeAwardSticker, getRewards,
 } from './storage.js';
+import {
+  registerUser, loginUser, userForToken, logoutToken, userCount,
+} from './auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,6 +27,43 @@ const app = express();
 app.use(cors());
 // Allow larger bodies so child photos (base64 data URLs) fit comfortably
 app.use(express.json({ limit: '8mb' }));
+
+// ── Accounts (local register / login) ─────────────────────────────────────
+// Passwords are hashed server-side; the client keeps only an opaque token.
+const bearerToken = (req) => {
+  const h = req.headers.authorization || '';
+  if (h.startsWith('Bearer ')) return h.slice(7);
+  return (req.query && req.query.token) || (req.body && req.body.token) || '';
+};
+
+app.get('/api/auth/status', (req, res) => {
+  res.json({ hasUsers: userCount() > 0 });
+});
+
+app.post('/api/auth/register', (req, res) => {
+  const { email, password, name } = req.body || {};
+  const r = registerUser({ email, password, name });
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.json({ ok: true, token: r.token, user: r.user });
+});
+
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body || {};
+  const r = loginUser({ email, password });
+  if (r.error) return res.status(401).json({ error: r.error });
+  res.json({ ok: true, token: r.token, user: r.user });
+});
+
+app.get('/api/auth/me', (req, res) => {
+  const user = userForToken(bearerToken(req));
+  if (!user) return res.status(401).json({ error: 'לא מחובר' });
+  res.json({ ok: true, user });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  logoutToken(bearerToken(req));
+  res.json({ ok: true });
+});
 
 // Serve the built React app from client/dist when running as a packaged app
 const distPath = path.resolve(__dirname, '..', 'client', 'dist');
@@ -58,6 +104,23 @@ const TYPE_LABELS = {
   geo_corners: 'גאומטריה – פינות',
   geo_identify: 'גאומטריה – זיהוי צורה',
   geo_count_sides_compare: 'גאומטריה – השוואת צורות',
+  geo_count: 'גאומטריה – ספירת צורות',
+  count_objects: 'ספירת חפצים',
+  compare_quantities: 'השוואת כמויות',
+  number_after: 'המספר שאחרי',
+  number_before: 'המספר שלפני',
+  visual_add: 'חיבור עם ציורים',
+  visual_sub: 'חיסור עם ציורים',
+  pattern: 'חוקיות (דגם חוזר)',
+  biggest_number: 'המספר הגדול ביותר',
+  smallest_number: 'המספר הקטן ביותר',
+  round_tens_add: 'חיבור עשרות שלמות',
+  round_tens_sub: 'חיסור עשרות שלמות',
+  two_digit_add: 'חיבור דו-ספרתי',
+  two_digit_sub: 'חיסור דו-ספרתי',
+  missing_number: 'מספר חסר בתרגיל',
+  even_odd: 'זוגי או אי-זוגי',
+  repeated_add: 'חיבור חוזר (לקראת כפל)',
   name_letter: 'שם האות',
   word_starts_with: 'מילה שמתחילה ב-',
   fill_letter: 'השלמת אות במילה',
@@ -68,6 +131,18 @@ const TYPE_LABELS = {
   count_letter: 'ספירת אותיות',
   first_letter_of_word: 'אות ראשונה',
   odd_one_out: 'מה שונה',
+  read_word: 'קריאת מילה',
+  last_letter: 'אות אחרונה',
+  en_letter_name: 'אנגלית – שם האות',
+  en_letter_find: 'אנגלית – מציאת אות',
+  en_first_letter: 'אנגלית – אות פותחת',
+  en_word_to_pic: 'אנגלית – מילה לתמונה',
+  en_pic_to_word: 'אנגלית – תמונה למילה',
+  en_listen_pick: 'אנגלית – הבנת הנשמע',
+  en_translate_to_he: 'אנגלית – תרגום לעברית',
+  en_translate_to_en: 'אנגלית – תרגום לאנגלית',
+  en_missing_letter: 'אנגלית – אות חסרה',
+  en_spell: 'אנגלית – כתיבת מילה',
 };
 
 // Review questions resurface per child AND per subject, so a kid who learns
@@ -84,34 +159,76 @@ app.get('/api/exercises/:child', (req, res) => {
   const requested = String(req.query.subject || '');
   const subject = profile.subjects.includes(requested) ? requested : profile.subjects[0];
 
+  // Optional operation focus for math sessions ('add' | 'sub' | 'mix').
+  const op = String(req.query.op || 'mix');
+
   const weakness = computeWeakness(child);
   const reviewExercises = popReviewQueue(reviewKey(child, subject), 3);
-  const exercises = subject === 'hebrew'
-    ? generateHebrewExercises(weakness, reviewExercises)
-    : generateMathExercises(weakness, reviewExercises, profile.mathLevel);
+  // Prep-track children (עולה לכיתה א׳/ב׳) get curriculum-stage sessions that
+  // climb automatically; everyone else keeps the level/mixed behaviour.
+  const progress = getProgress(child, subject);
+  // Every ladder starts at the parent-chosen level and climbs from there.
+  const effectiveStage = subject === 'english'
+    ? Math.max(progress.stage, profile.englishLevel || 1)
+    : subject === 'hebrew'
+      ? Math.max(progress.stage, profile.hebrewLevel || 1)
+      : Math.max(progress.stage, profile.mathStage || 1);
+  const makeSession = () => subject === 'english'
+    ? generateEnglishExercises(effectiveStage, reviewExercises, profile.grade)
+    : subject === 'hebrew'
+      ? generateHebrewExercises(weakness, reviewExercises, effectiveStage, profile.grade)
+      : profile.grade
+        ? generatePrepMath(profile.grade, effectiveStage, reviewExercises, op)
+        : generateMathExercises(weakness, reviewExercises, profile.mathLevel, op);
 
-  return res.json({ child, subject, date, exercises, weakness });
+  // Daily summer plan: size the session to exactly what's left of today's
+  // quota, so one session (or a short top-up) completes the subject.
+  const planTarget = planIsActive(profile, date) ? profile.dailyPlan[subject] : null;
+  let exercises;
+  if (planTarget) {
+    const remaining = planTarget - countTodayExercises(child, subject, date);
+    exercises = remaining > 0 ? fitSessionToCount(makeSession, remaining) : makeSession();
+  } else {
+    exercises = makeSession();
+  }
+
+  return res.json({ child, subject, date, exercises, weakness, track: profile.grade || null, stage: effectiveStage });
+});
+
+// ── Mistakes collection (תרגול טעויות) ─────────────────────────────────────
+// Everything each child got wrong on first attempt, per subject, kept until
+// the child solves that exact question correctly on the first try.
+app.get('/api/mistakes/:child', (req, res) => {
+  const { child } = req.params;
+  const profile = getChild(child);
+  if (!profile) return res.status(404).json({ error: 'Unknown child' });
+  const mistakes = {};
+  for (const s of profile.subjects) mistakes[s] = getMistakes(child, s);
+  res.json({ child, mistakes });
 });
 
 // ── Children (profiles) ───────────────────────────────────────────────────
 app.get('/api/children', (req, res) => {
-  res.json({ children: readChildren() });
+  // Attach today's daily-plan progress so the home screen can show it.
+  const today = new Date().toISOString().slice(0, 10);
+  const children = readChildren().map(c => ({ ...c, todayPlan: getPlanStatus(c, today) }));
+  res.json({ children });
 });
 
 app.post('/api/children', (req, res) => {
-  const { name, gender, subject, subjects, mathLevel, avatar, photo } = req.body || {};
+  const { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, avatar, photo } = req.body || {};
   if (!name || !String(name).trim()) return res.status(400).json({ error: 'חסר שם' });
   // Reject oversized photos (defensive – client already downscales)
   if (photo && photo.length > 6_000_000) return res.status(413).json({ error: 'התמונה גדולה מדי' });
-  const child = addChild({ name, gender, subject, subjects, mathLevel, avatar, photo });
+  const child = addChild({ name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, avatar, photo });
   res.json({ ok: true, child });
 });
 
 app.put('/api/children/:id', (req, res) => {
-  const { name, gender, subject, subjects, mathLevel, avatar, photo } = req.body || {};
+  const { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, avatar, photo } = req.body || {};
   if (name !== undefined && !String(name).trim()) return res.status(400).json({ error: 'חסר שם' });
   if (photo && photo.length > 6_000_000) return res.status(413).json({ error: 'התמונה גדולה מדי' });
-  const child = updateChild(req.params.id, { name, gender, subject, subjects, mathLevel, avatar, photo });
+  const child = updateChild(req.params.id, { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, avatar, photo });
   if (!child) return res.status(404).json({ error: 'הילד לא נמצא' });
   res.json({ ok: true, child });
 });
@@ -123,19 +240,48 @@ app.delete('/api/children/:id', (req, res) => {
 });
 
 app.post('/api/save-session', async (req, res) => {
-  const { child, childName, date, results, subject } = req.body;
+  const { child, childName, date, results, subject, practice } = req.body;
   if (!child || !results) return res.status(400).json({ error: 'Missing data' });
 
-  const session = { child, childName, date, results, subject };
+  // The mistakes collection always updates: new mistakes join it, questions
+  // solved correctly on the first attempt leave it. Runs BEFORE the session
+  // is written to history — the first call lazily backfills from history, and
+  // saving first would make it count this session's results twice.
+  updateMistakes(child, subject || 'math', results);
+
+  const session = { child, childName, date, results, subject, practice: !!practice };
   saveSession(child, session);
 
-  // Resurface wrong exercises into review queue for next session (per subject)
-  addWrongToReviewQueue(reviewKey(child, subject), results);
+  const profile = getChild(child);
+  let progress = null;
+  if (!practice) {
+    // Resurface wrong exercises into review queue for next session (per subject)
+    addWrongToReviewQueue(reviewKey(child, subject), results);
+    // Adaptive difficulty: consecutive successful days climb the child's
+    // prep-track stage / math level automatically. Practice sessions are
+    // remedial by nature and never touch the streak.
+    progress = profile
+      ? applySessionProgress(profile, subject, date || new Date().toISOString().slice(0, 10), results)
+      : null;
+  }
 
   // Send email report (non-blocking)
   sendEmailReport(session, child).catch(err => console.error('Email failed:', err.message));
 
-  res.json({ ok: true });
+  // Daily-plan status after this session (for the "day complete" celebration),
+  // and today's sticker when the day's learning was earned.
+  const day = date || new Date().toISOString().slice(0, 10);
+  const planStatus = profile ? getPlanStatus(profile, day) : null;
+  const sticker = profile ? maybeAwardSticker(profile, day, planStatus) : null;
+
+  res.json({ ok: true, progress, planStatus, sticker });
+});
+
+// ── Rewards: stars, streak, sticker album, achievements ───────────────────
+app.get('/api/rewards/:child', (req, res) => {
+  const profile = getChild(req.params.child);
+  if (!profile) return res.status(404).json({ error: 'Unknown child' });
+  res.json({ child: profile.id, ...getRewards(profile.id) });
 });
 
 app.get('/api/history/:child', (req, res) => {
@@ -144,7 +290,15 @@ app.get('/api/history/:child', (req, res) => {
 });
 
 app.get('/api/stats/:child', (req, res) => {
-  res.json(getStats(req.params.child));
+  const child = req.params.child;
+  res.json({
+    ...getStats(child),
+    progress: {
+      math: getProgress(child, 'math'),
+      hebrew: getProgress(child, 'hebrew'),
+      english: getProgress(child, 'english'),
+    },
+  });
 });
 
 // ── Hebrew TTS proxy (Google Translate, free, no API key) ─────────────────
@@ -155,15 +309,18 @@ const TTS_CACHE_LIMIT = 200;
 app.get('/api/tts', (req, res) => {
   const text = String(req.query.text || '').slice(0, 200);
   if (!text) return res.status(400).send('Missing text');
+  // Hebrew by default; English voice for the English exercises.
+  const lang = req.query.lang === 'en' ? 'en' : 'iw';
 
-  const cached = ttsCache.get(text);
+  const cacheKey = `${lang}|${text}`;
+  const cached = ttsCache.get(cacheKey);
   if (cached) {
     res.set('Content-Type', 'audio/mpeg');
     res.set('Cache-Control', 'public, max-age=86400');
     return res.end(cached);
   }
 
-  const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=iw&client=tw-ob`;
+  const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=tw-ob`;
   https.get(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -185,7 +342,7 @@ app.get('/api/tts', (req, res) => {
         const firstKey = ttsCache.keys().next().value;
         ttsCache.delete(firstKey);
       }
-      ttsCache.set(text, buf);
+      ttsCache.set(cacheKey, buf);
       res.set('Content-Type', 'audio/mpeg');
       res.set('Cache-Control', 'public, max-age=86400');
       res.end(buf);
@@ -313,7 +470,7 @@ app.post('/api/remove-bg', async (req, res) => {
   }
 });
 
-async function sendEmailReport({ childName, date, results }, child) {
+async function sendEmailReport({ childName, date, results, practice }, child) {
   const total = results.length;
   // "Mistake" = first attempt was wrong (even if eventually corrected)
   const noMistake = results.filter(r => r.firstAttemptCorrect !== false && r.correct).length;
@@ -399,7 +556,7 @@ async function sendEmailReport({ childName, date, results }, child) {
   await transporter.sendMail({
     from: `"KidsLearn 🌟" <${cfg.smtpUser}>`,
     to: cfg.recipients || cfg.smtpUser,
-    subject: `דוח למידה – ${childName} – ${date}`,
+    subject: `${practice ? 'תרגול טעויות' : 'דוח למידה'} – ${childName} – ${date}`,
     html,
   });
   console.log(`[email sent to ${cfg.recipients || cfg.smtpUser}]`);
