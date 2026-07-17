@@ -865,6 +865,366 @@ const geoGrade2 = () => GENERATORS[pick(['geo_identify', 'geo_sides', 'geo_corne
 const tensOnes = () => GENERATORS[pick(['tens_in_number', 'ones_in_number', 'build_tens_ones', 'expanded_form'])]();
 const skipCount = () => GENERATORS[pick(['skip_count', 'skip_count_back'])]();
 
+// ═══ Curriculum topics added after MoE-curriculum research (2026-07) ════════
+// Sources: תכנית הליבה במתמטיקה לקדם-יסודי; תכנית הלימודים החדשה לכיתות א-ב
+// (2023). Every type below maps to an explicit curriculum goal.
+
+// ── Ordinal numbers (מספרים סודרים — יעד מפורש בגן: עד שישי, הרחבה לעשירי) ──
+const ORDINAL_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שביעי', 'שמיני', 'תשיעי', 'עשירי'];
+const ORDINAL_ITEMS = [
+  { e: '🐶', name: 'הכלב' }, { e: '🐱', name: 'החתול' }, { e: '🐭', name: 'העכבר' },
+  { e: '🐰', name: 'הארנב' }, { e: '🦊', name: 'השועל' }, { e: '🐮', name: 'הפרה' },
+  { e: '🐸', name: 'הצפרדע' }, { e: '🐔', name: 'התרנגולת' }, { e: '🐢', name: 'הצב' }, { e: '🦁', name: 'האריה' },
+];
+
+// The 🚩 anchor defines where the queue starts — string order lays out
+// right-to-left in the RTL page, matching how a Hebrew-reading child scans.
+function makeOrdinalPosition(maxOrdinal = 6) {
+  const n = randInt(4, Math.min(6, maxOrdinal));
+  const row = shuffle(ORDINAL_ITEMS).slice(0, n);
+  const line = ['🚩', ...row.map(i => i.e)].join(' ');
+  const idx = randInt(0, Math.min(n, maxOrdinal) - 1);
+  if (pick([true, false])) {
+    const correct = row[idx];
+    const wrong = shuffle(row.filter((_, i) => i !== idx)).slice(0, 3);
+    return {
+      type: 'ordinal_position', difficulty: 2, dir: 'rtl',
+      question: `מי עומד ${ORDINAL_NAMES[idx]} בתור? מתחילים לספור מהדגל!`,
+      displayShape: line,
+      answer: correct.e,
+      options: shuffle([correct, ...wrong]).map(i => i.e),
+      hint: `מצביעים על הדגל 🚩 וסופרים: ראשון, שני, שלישי...`,
+    };
+  }
+  const target = row[idx];
+  const optIdx = new Set([idx]);
+  while (optIdx.size < Math.min(4, n)) optIdx.add(randInt(0, n - 1));
+  return {
+    type: 'ordinal_position', difficulty: 2, dir: 'rtl',
+    question: `באיזה מקום בתור עומד ${target.name}? מתחילים מהדגל!`,
+    displayShape: line,
+    answer: ORDINAL_NAMES[idx],
+    options: shuffle([...optIdx]).map(i => ORDINAL_NAMES[i]),
+    hint: `סופרים מהדגל 🚩: ראשון, שני, שלישי...`,
+  };
+}
+
+// ── Counting with distractors (עקרון ההפשטה + נתונים מיותרים בכיתה א) ───────
+const CATEGORY_POOLS = [
+  { name: 'פירות', items: [{ e: '🍎', n: 'תפוחים' }, { e: '🍌', n: 'בננות' }, { e: '🍓', n: 'תותים' }, { e: '🍇', n: 'ענבים' }] },
+  { name: 'חיות', items: [{ e: '🐶', n: 'כלבים' }, { e: '🐱', n: 'חתולים' }, { e: '🐰', n: 'ארנבים' }] },
+  { name: 'כלי רכב', items: [{ e: '🚗', n: 'מכוניות' }, { e: '🚌', n: 'אוטובוסים' }, { e: '🚲', n: 'זוגות אופניים' }] },
+  { name: 'צעצועים', items: [{ e: '⚽', n: 'כדורים' }, { e: '🧸', n: 'דובים' }, { e: '🎈', n: 'בלונים' }] },
+];
+
+function twoLines(arr) {
+  const mid = Math.ceil(arr.length / 2);
+  return arr.slice(0, mid).join(' ') + '\n' + arr.slice(mid).join(' ');
+}
+
+function makeCountCategory(hard = false) {
+  const [catA, catB] = shuffle(CATEGORY_POOLS).slice(0, 2);
+  if (!hard) {
+    // Count one item type among cross-category distractors.
+    const target = pick(catA.items);
+    const t = randInt(2, 6);
+    const distractors = Array.from({ length: randInt(2, 5) }, () => pick(catB.items).e);
+    return {
+      type: 'count_category', difficulty: 2, dir: 'rtl',
+      question: `כמה ${target.n} יש בתמונה?`,
+      displayShape: twoLines(shuffle([...Array(t).fill(target.e), ...distractors])),
+      answer: t,
+      hint: `סופרים רק ${target.e} ומתעלמים מכל השאר`,
+    };
+  }
+  // Harder: count a CATEGORY (union of two members) among another category.
+  const members = shuffle(catA.items).slice(0, 2);
+  const counts = members.map(() => randInt(1, 3));
+  const total = counts[0] + counts[1];
+  const noise = Array.from({ length: randInt(2, 4) }, () => pick(catB.items).e);
+  const all = shuffle([...Array(counts[0]).fill(members[0].e), ...Array(counts[1]).fill(members[1].e), ...noise]);
+  return {
+    type: 'count_category', difficulty: 2, dir: 'rtl',
+    question: `כמה ${catA.name} יש בתמונה?`,
+    displayShape: twoLines(all),
+    answer: total,
+    hint: `${catA.name} זה גם ${members[0].e} וגם ${members[1].e}`,
+  };
+}
+
+// ── Days of the week (מושגי זמן מחזוריים — תכנית הגן) ────────────────────────
+const WEEK_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+const dayName = (i) => `יום ${WEEK_DAYS[(i + 7) % 7]}`;
+
+function makeDaysOfWeek() {
+  const optionsAround = (correct) => {
+    const set = new Set([correct]);
+    while (set.size < 4) set.add(randInt(0, 6));
+    return shuffle([...set]).map(dayName);
+  };
+  const variant = pick(['after', 'before', 'tomorrow', 'ordinal', 'rest']);
+  if (variant === 'rest') {
+    return {
+      type: 'days_of_week', difficulty: 1, dir: 'rtl',
+      question: 'איזה יום הוא יום המנוחה בשבוע?',
+      answer: 'יום שבת',
+      options: shuffle(['יום שבת', 'יום ראשון', 'יום שלישי', 'יום שישי']),
+      hint: 'היום שבו נחים ולא הולכים לגן',
+    };
+  }
+  if (variant === 'ordinal') {
+    const i = randInt(0, 6);
+    return {
+      type: 'days_of_week', difficulty: 2, dir: 'rtl',
+      question: `מה היום ה${ORDINAL_NAMES[i]} בשבוע?`,
+      answer: dayName(i),
+      options: optionsAround(i),
+      hint: 'מתחילים לספור מיום ראשון',
+    };
+  }
+  const i = randInt(0, 6);
+  if (variant === 'before') {
+    return {
+      type: 'days_of_week', difficulty: 1, dir: 'rtl',
+      question: `איזה יום בא לפני ${dayName(i)}?`,
+      answer: dayName(i - 1),
+      options: optionsAround((i + 6) % 7),
+      hint: 'לפני יום ראשון בא שבת',
+    };
+  }
+  return {
+    type: 'days_of_week', difficulty: 1, dir: 'rtl',
+    question: variant === 'after'
+      ? `איזה יום בא אחרי ${dayName(i)}?`
+      : `אם היום ${dayName(i)}, איזה יום יהיה מחר?`,
+    answer: dayName(i + 1),
+    options: optionsAround((i + 1) % 7),
+    hint: 'אחרי שבת מתחילים שוב מיום ראשון',
+  };
+}
+
+// ── Clock reading (שעון — כיתה א: שעות שלמות; כיתה ב: גם חצאים ומשך) ────────
+const CLOCK_WHOLE = ['🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚', '🕛'];
+const CLOCK_HALF = ['🕜', '🕝', '🕞', '🕟', '🕠', '🕡', '🕢', '🕣', '🕤', '🕥', '🕦', '🕧'];
+const clockEmoji = (h, half) => (half ? CLOCK_HALF : CLOCK_WHOLE)[h - 1];
+
+function makeClockReading({ halves = false, duration = false } = {}) {
+  if (duration && pick([true, false])) {
+    const start = randInt(1, 9);
+    const len = randInt(1, 3);
+    const lenText = len === 1 ? 'שעה אחת' : len === 2 ? 'שעתיים' : `${len} שעות`;
+    return {
+      type: 'clock_reading', difficulty: 3, dir: 'rtl',
+      question: `החוג התחיל בשעה ${start}:00 ונמשך ${lenText}. באיזו שעה הוא הסתיים?`,
+      displayShape: clockEmoji(start, false),
+      answer: start + len,
+      hint: `מתקדמים ${len} שעות קדימה מ-${start}`,
+    };
+  }
+  const h = randInt(1, 12);
+  const half = halves && pick([true, false]);
+  const label = (hh, hf) => `${hh}:${hf ? '30' : '00'}`;
+  if (pick([true, false])) {
+    const correct = label(h, half);
+    const wrong = new Set();
+    while (wrong.size < 3) {
+      const w = pick([
+        label((h % 12) + 1, half),
+        label(h === 1 ? 12 : h - 1, half),
+        label(h, !half),
+        label(randInt(1, 12), pick([true, false])),
+      ]);
+      if (w !== correct) wrong.add(w);
+    }
+    return {
+      type: 'clock_reading', difficulty: 2, dir: 'rtl',
+      question: 'מה השעה בשעון?',
+      displayShape: clockEmoji(h, half),
+      answer: correct,
+      options: shuffle([correct, ...wrong]),
+      hint: half ? 'כשהמחוג הארוך למטה — זה "וחצי"' : 'כשהמחוג הארוך למעלה — שעה עגולה',
+    };
+  }
+  const hourSet = new Set([h]);
+  while (hourSet.size < 4) hourSet.add(randInt(1, 12));
+  return {
+    type: 'clock_reading', difficulty: 2, dir: 'rtl',
+    question: `איזה שעון מראה את השעה ${h}${half ? ' וחצי' : ':00'}?`,
+    answer: clockEmoji(h, half),
+    options: shuffle([...hourSet]).map(x => clockEmoji(x, half)),
+    hint: 'המחוג הקצר מראה את השעה',
+  };
+}
+
+// ── Money (כסף — קישוריות חינוך פיננסי בתכנית א-ב; שקלים שלמים בלבד) ────────
+const MONEY_DENOMS = [
+  { v: 1, e: '🪙' }, { v: 2, e: '🪙' }, { v: 5, e: '🪙' }, { v: 10, e: '🪙' },
+  { v: 20, e: '💵' }, { v: 50, e: '💵' }, { v: 100, e: '💵' },
+];
+
+function makeMoneyCount({ gan = false } = {}) {
+  const variant = gan ? pick(['count', 'missing']) : pick(['count', 'missing', 'change', 'compare']);
+  if (variant === 'count') {
+    const pool = MONEY_DENOMS.filter(d => d.v <= (gan ? 10 : 100));
+    const maxSum = gan ? 20 : 110;
+    const items = [];
+    let sum = 0;
+    for (let i = 0, n = randInt(2, gan ? 3 : 5); i < n; i++) {
+      const fits = pool.filter(x => sum + x.v <= maxSum);
+      if (!fits.length) break;
+      const d = pick(fits);
+      items.push(d);
+      sum += d.v;
+    }
+    return {
+      type: 'money_count', difficulty: 2, dir: 'rtl',
+      question: 'כמה כסף יש בארנק?',
+      displayShape: items.map(d => `${d.e} ${d.v} ש״ח`).join('\n'),
+      answer: sum,
+      hint: 'מחברים את כל המטבעות והשטרות',
+    };
+  }
+  if (variant === 'missing') {
+    const price = gan ? randInt(5, 20) : randInt(20, 100);
+    const have = randInt(1, price - 1);
+    return {
+      type: 'money_count', difficulty: 2, dir: 'rtl',
+      question: `צעצוע עולה ${price} שקלים ויש לך ${have} שקלים. כמה שקלים חסרים לך?`,
+      displayShape: '🧸',
+      answer: price - have,
+      hint: `${price} פחות ${have}`,
+    };
+  }
+  if (variant === 'change') {
+    const bill = pick([20, 50, 100]);
+    const price = randInt(bill - 18, bill - 1);
+    return {
+      type: 'money_count', difficulty: 3, dir: 'rtl',
+      question: `קנית גלידה ב-${price} שקלים ושילמת בשטר של ${bill} שקלים. כמה עודף תקבל?`,
+      displayShape: '🍦',
+      answer: bill - price,
+      hint: `${bill} פחות ${price}`,
+    };
+  }
+  // compare: more coins is not always more money (explicit curriculum note)
+  let na, va, nb, vb;
+  do {
+    na = randInt(2, 5); va = pick([2, 5, 10]);
+    nb = randInt(2, 5); vb = pick([1, 2, 5]);
+  } while (na * va === nb * vb);
+  const optA = `${na} מטבעות של ${va} שקלים`;
+  const optB = `${nb} מטבעות של ${vb} שקלים`;
+  return {
+    type: 'money_count', difficulty: 3, dir: 'rtl',
+    question: 'למי יש יותר כסף?',
+    displayShape: '🪙',
+    answer: na * va > nb * vb ? optA : optB,
+    options: shuffle([optA, optB]),
+    hint: 'הרבה מטבעות זה לא תמיד הרבה כסף — כופלים ובודקים',
+  };
+}
+
+// ── Pictogram reading (חקר נתונים — נושא מלא בתכנית כיתה ב) ─────────────────
+const PICTO_ITEMS = [
+  { e: '🍎', n: 'תפוח' }, { e: '🍌', n: 'בננה' }, { e: '🍓', n: 'תות' },
+  { e: '⚽', n: 'כדורגל' }, { e: '🍦', n: 'גלידה' }, { e: '🐶', n: 'כלב' },
+];
+
+function makePictogram({ gan = false } = {}) {
+  const cats = shuffle(PICTO_ITEMS).slice(0, gan ? 2 : 3);
+  const max = gan ? 5 : 7;
+  let counts;
+  do { counts = cats.map(() => randInt(1, max)); } while (new Set(counts).size !== counts.length);
+  const rows = cats.map((c, i) => `${c.n}: ${Array(counts[i]).fill(c.e).join('')}`).join('\n');
+  const base = {
+    type: 'pictogram_read', difficulty: 2, dir: 'rtl',
+    displayShape: rows,
+  };
+  const variant = gan ? pick(['value', 'max']) : pick(['value', 'max', 'diff', 'total']);
+  if (variant === 'value') {
+    const i = randInt(0, cats.length - 1);
+    return { ...base, question: `ילדים בחרו את מה שהם הכי אוהבים. כמה ילדים בחרו ${cats[i].n}?`, answer: counts[i], hint: `סופרים את השורה של ${cats[i].n}` };
+  }
+  if (variant === 'max') {
+    const maxIdx = counts.indexOf(Math.max(...counts));
+    return {
+      ...base,
+      question: 'מה הכי אהוב על הילדים בגרף?',
+      answer: cats[maxIdx].e,
+      options: shuffle(cats.map(c => c.e)),
+      hint: 'מחפשים את השורה הארוכה ביותר',
+    };
+  }
+  if (variant === 'diff') {
+    const [i, j] = counts[0] >= counts[1] ? [0, 1] : [1, 0];
+    return { ...base, question: `בכמה ילדים ${cats[i].n} מנצח את ${cats[j].n}?`, answer: counts[i] - counts[j], hint: 'מחסרים את הקצר מהארוך' };
+  }
+  return { ...base, question: 'כמה ילדים ענו בסך הכול?', answer: counts.reduce((a, b) => a + b, 0), hint: 'מחברים את כל השורות', difficulty: 3 };
+}
+
+// ── Multiplication & division facts (לוחות 2, 4, 5, 10 — יעד סוף כיתה ב) ────
+function makeMulDiv() {
+  const a = pick([2, 4, 5, 10]);
+  const b = randInt(1, 10);
+  const variant = pick(['array', 'fact', 'div', 'share', 'missing', 'half']);
+  if (variant === 'array') {
+    const r = pick([2, 4, 5]);
+    const c = randInt(2, 6);
+    const item = pick(COUNT_ITEMS);
+    return {
+      type: 'mul_div_facts', difficulty: 3, dir: 'rtl',
+      question: `יש ${r} שורות של ${c} ${item.name}. כמה ${item.name} יש בסך הכול?`,
+      displayShape: Array(r).fill(Array(c).fill(item.e).join(' ')).join('\n'),
+      answer: r * c,
+      hint: `${Array(r).fill(c).join(' ועוד ')}`,
+    };
+  }
+  if (variant === 'fact') {
+    return {
+      type: 'mul_div_facts', difficulty: 3, dir: 'ltr',
+      question: `${a} × ${b} = ?`, answer: a * b,
+      hint: `${a} כפול ${b} זה כמו ${b} ועוד ${b}, ${a} פעמים`,
+      dedupKey: `mul|${a}x${b}`,
+    };
+  }
+  if (variant === 'div') {
+    const bb = Math.max(1, b);
+    return {
+      type: 'mul_div_facts', difficulty: 3, dir: 'ltr',
+      question: `${a * bb} : ${a} = ?`, answer: bb,
+      hint: `כמה פעמים ${a} נכנס ב-${a * bb}?`,
+      dedupKey: `div|${a * bb}:${a}`,
+    };
+  }
+  if (variant === 'share') {
+    const kids = pick([2, 4, 5]);
+    const each = randInt(1, 6);
+    return {
+      type: 'mul_div_facts', difficulty: 3, dir: 'rtl',
+      question: `${kids * each} בלונים 🎈 מחלקים שווה בשווה בין ${kids} ילדים. כמה בלונים יקבל כל ילד?`,
+      answer: each,
+      hint: `מחלקים ${kids * each} ל-${kids} קבוצות שוות`,
+    };
+  }
+  if (variant === 'missing') {
+    const bb = Math.max(1, b);
+    return {
+      type: 'mul_div_facts', difficulty: 3, dir: 'ltr',
+      question: `${a} × ? = ${a * bb}`, answer: bb,
+      hint: `כמה פעמים ${a} כדי להגיע ל-${a * bb}?`,
+      dedupKey: `mulmiss|${a}x${bb}`,
+    };
+  }
+  const n = 2 * randInt(1, 10);
+  return {
+    type: 'mul_div_facts', difficulty: 3, dir: 'rtl',
+    question: `כמה זה חצי מ-${n}?`,
+    answer: n / 2,
+    hint: `חצי זה לחלק ל-2 חלקים שווים`,
+    dedupKey: `half|${n}`,
+  };
+}
+
 // Stage plans. Each entry receives the operation focus ('add'|'sub'|'mix')
 // and returns an array of generator thunks (one per question in the session).
 // gan_to_a sessions have 12 questions; a_to_b sessions have 20.
@@ -891,8 +1251,10 @@ const PREP_PLANS = {
           : [() => makeVisualAdd(5), () => makeVisualSub(5)]),
       makePattern,
       () => GENERATORS.geo_sides(),
-      () => GENERATORS.geo_identify(),
       () => makeBiggestNumber(10),
+      () => makeOrdinalPosition(6),
+      () => makeCountCategory(false),
+      makeDaysOfWeek,
     ],
     // Stage 3 – חיבור וחיסור עם ציורים עד 10
     (op) => [
@@ -907,8 +1269,11 @@ const PREP_PLANS = {
       () => (pick([true, false]) ? makeNumberAfter(10) : makeNumberBefore(10)),
       () => makeCompareLeveled(10),
       () => makeSequenceLeveled(10),
-      () => makeCountObjects(10),
       () => GENERATORS.geo_corners(),
+      () => makeOrdinalPosition(10),
+      () => makeCountCategory(true),
+      makeDaysOfWeek,
+      () => makePictogram({ gan: true }),
     ],
     // Stage 4 – מוכנות לכיתה א׳ (ספרות בלבד עד 10)
     (op) => [
@@ -922,8 +1287,11 @@ const PREP_PLANS = {
       () => makeSequenceLeveled(20),
       () => makeCompareLeveled(20),
       () => (op === 'sub' ? makeWordSubLeveled(10) : makeWordAddLeveled(10)),
-      () => makeNumberAfter(20),
       geoGan,
+      () => makeClockReading(),                 // שעות שלמות — מוכנות לכיתה א
+      () => makeMoneyCount({ gan: true }),      // סכומים קטנים עד 20 ש"ח
+      () => makePictogram({ gan: true }),
+      makeDaysOfWeek,
     ],
   ],
   a_to_b: [
@@ -941,11 +1309,13 @@ const PREP_PLANS = {
         ? [GENERATORS.subtraction_20, GENERATORS.subtraction_30]
         : [GENERATORS.complete_10, GENERATORS.complete_20]),
       tensOnes, tensOnes, tensOnes,
-      () => makeCompareLeveled(100), () => makeCompareLeveled(100),
+      () => makeCompareLeveled(100),
       skipCount, skipCount, () => makeSequenceLeveled(50),
       () => (op === 'sub' ? makeWordSubLeveled(20) : makeWordAddLeveled(20)),
       () => (op === 'add' ? makeWordAddLeveled(20) : makeWordSubLeveled(20)),
       geoGrade2, geoGrade2,
+      () => makeOrdinalPosition(10),
+      makeDaysOfWeek,
     ],
     // Stage 2 – עשרות שלמות ושכנים בתחום ה-100
     (op) => [
@@ -963,11 +1333,14 @@ const PREP_PLANS = {
       () => (op === 'add' ? makeMissingAdd(20) : op === 'sub' ? makeMissingSub(20) : pick([makeMissingAdd, makeMissingSub])(20)),
       () => makeNumberAfter(100), () => makeNumberBefore(100),
       tensOnes, tensOnes,
-      skipCount, skipCount,
-      () => makeCompareLeveled(100), () => makeCompareLeveled(100),
+      skipCount,
+      () => makeCompareLeveled(100),
       () => (op === 'sub' ? makeWordSubLeveled(30) : makeWordAddLeveled(30)),
       () => (op === 'add' ? makeWordAddLeveled(30) : makeWordSubLeveled(30)),
       geoGrade2, geoGrade2,
+      () => makeClockReading(),                 // שעות שלמות
+      () => makeMoneyCount(),
+      () => makePictogram(),
     ],
     // Stage 3 – חיבור וחיסור דו-ספרתי ללא המרה
     (op) => [
@@ -978,14 +1351,16 @@ const PREP_PLANS = {
           : [makeTwoDigitAdd, makeTwoDigitAdd, makeTwoDigitAdd, makeTwoDigitSub, makeTwoDigitSub, makeTwoDigitSub]),
       () => (op === 'sub' ? makeMissingSub(30) : op === 'add' ? makeMissingAdd(30) : pick([makeMissingAdd, makeMissingSub])(30)),
       () => (op === 'add' ? makeMissingAdd(30) : op === 'sub' ? makeMissingSub(30) : pick([makeMissingAdd, makeMissingSub])(30)),
-      () => makeEvenOdd(20), () => makeEvenOdd(20),
-      tensOnes, tensOnes,
-      skipCount, skipCount,
-      () => makeCompareLeveled(100),
+      () => makeEvenOdd(20),
+      tensOnes,
+      skipCount,
       () => (op === 'sub' ? makeWordSubLeveled(30) : makeWordAddLeveled(30)),
       () => (op === 'add' ? makeWordAddLeveled(30) : makeWordSubLeveled(30)),
-      () => (op === 'sub' ? makeRoundTensSub() : op === 'add' ? makeRoundTensAdd() : pick([makeRoundTensAdd, makeRoundTensSub])()),
-      geoGrade2, geoGrade2,
+      geoGrade2,
+      () => makeClockReading({ halves: true }), // חצאי שעות — כיתה ב
+      () => makeMoneyCount(),
+      () => makePictogram(),
+      makeMulDiv, makeMulDiv,                   // לוחות 2, 4, 5, 10
     ],
     // Stage 4 – לקראת כיתה ב׳ (חיבור חוזר, היכרות עם מאות)
     (op) => [
@@ -994,17 +1369,19 @@ const PREP_PLANS = {
         : op === 'sub'
           ? [makeTwoDigitSub, makeTwoDigitSub, makeTwoDigitSub, makeTwoDigitSub]
           : [makeTwoDigitAdd, makeTwoDigitAdd, makeTwoDigitSub, makeTwoDigitSub]),
-      makeRepeatedAdd, makeRepeatedAdd, makeRepeatedAdd,
+      makeRepeatedAdd,
       GENERATORS.hundreds_in_number, GENERATORS.build_hundreds, GENERATORS.skip_count_100,
       () => (op === 'sub' ? makeMissingSub(50) : op === 'add' ? makeMissingAdd(50) : pick([makeMissingAdd, makeMissingSub])(50)),
       () => (op === 'add' ? makeMissingAdd(50) : op === 'sub' ? makeMissingSub(50) : pick([makeMissingAdd, makeMissingSub])(50)),
-      () => makeEvenOdd(50),
       () => (op === 'sub' ? makeWordSubLeveled(50) : makeWordAddLeveled(50)),
       () => (op === 'add' ? makeWordAddLeveled(50) : makeWordSubLeveled(50)),
       GENERATORS.expanded_form,
-      () => makeCompareLeveled(100),
       () => makeSequenceLeveled(100),
-      geoGrade2, geoGrade2,
+      geoGrade2,
+      makeMulDiv, makeMulDiv, makeMulDiv,       // כפל וחילוק — יעד כיתה ב
+      () => makeClockReading({ halves: true, duration: true }),
+      () => makeMoneyCount(),
+      () => makePictogram(),
     ],
   ],
 };

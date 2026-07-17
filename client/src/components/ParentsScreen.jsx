@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchStats, fetchHistory, fetchChildren, updateChild, IS_WEB } from '../api';
+import { fetchStats, fetchHistory, fetchChildren, fetchInsights, updateChild, IS_WEB } from '../api';
 import { PREP_TRACKS, stageName, STREAK_TO_ADVANCE, HEBREW_STAGES, ENGLISH_STAGES } from '../../../server/exercises/curriculum.js';
 import EmailSettings from './EmailSettings';
 import BgRemovalSettings from './BgRemovalSettings';
@@ -77,6 +77,83 @@ const TYPE_LABELS = {
 };
 
 const PLAN_SUBJECT_NAMES = { math: '➕ חשבון', hebrew: '🔤 עברית', english: '🇬🇧 אנגלית' };
+
+const REC_STYLE = {
+  strengthen:  { icon: '🎯', color: '#e65100', bg: '#fff3e0' },
+  consolidate: { icon: '💪', color: '#1565c0', bg: '#e3f2fd' },
+  advance:     { icon: '🚀', color: '#2e7d32', bg: '#e8f5e9' },
+  new_topics:  { icon: '🌟', color: '#6a1b9a', bg: '#f3e5f5' },
+  more_data:   { icon: '⏳', color: '#616161', bg: '#f5f5f5' },
+};
+const TREND_ARROW = { up: '▲', down: '▼', flat: '•' };
+const TREND_COLOR = { up: '#2e7d32', down: '#c62828', flat: '#999' };
+
+// Real learning analysis: mastery per topic family + one clear recommendation
+// per subject — strengthen / consolidate / advance a stage / move to NEW material.
+function InsightsSection({ child, childName }) {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    setData(null);
+    fetchInsights(child).then(d => setData(d.insights)).catch(() => setData([]));
+  }, [child]);
+
+  if (!data || !data.length) return null;
+  const withData = data.filter(s => s.overall.attempts > 0);
+  if (!withData.length) return null;
+
+  return (
+    <div className="section">
+      <h2>🧠 ניתוח והמלצות — {childName}</h2>
+      {withData.map(s => {
+        const st = REC_STYLE[s.recommendation.action] || REC_STYLE.more_data;
+        return (
+          <div key={s.subject} className="insight-subject">
+            <div className="insight-header">
+              {PLAN_SUBJECT_NAMES[s.subject] || s.subject}
+              <span className="insight-meta">
+                שלב {s.stage}/{s.maxStage} · {Math.round(s.overall.rate * 100)}% בניסיון ראשון ({s.overall.attempts} תרגילים אחרונים)
+              </span>
+            </div>
+
+            <div className="insight-rec" style={{ background: st.bg, color: st.color }}>
+              <span className="rec-icon">{st.icon}</span>
+              <span>
+                <strong>{s.recommendation.title}.</strong> {s.recommendation.text}
+                {s.recommendation.nextStage && <> השלב הבא: <strong>{s.recommendation.nextStage}</strong>.</>}
+              </span>
+            </div>
+
+            <div className="topic-list">
+              {s.families.map(f => (
+                <div key={f.key} className={`topic-row ${f.rate < 0.7 ? 'weak' : f.rate >= 0.9 ? 'strong' : ''}`}>
+                  <span className="topic-name">
+                    {f.label}
+                    {f.trend && (
+                      <span className="topic-trend" style={{ color: TREND_COLOR[f.trend] }} title="מגמה מול התקופה הקודמת">
+                        {' '}{TREND_ARROW[f.trend]}
+                      </span>
+                    )}
+                  </span>
+                  <span className="topic-bar">
+                    <span
+                      className="bar-fill"
+                      style={{ width: `${f.rate * 100}%`, background: f.rate < 0.7 ? '#e53935' : f.rate >= 0.9 ? '#43a047' : '#fb8c00' }}
+                    />
+                  </span>
+                  <span className="topic-stats">{f.firstTry}/{f.attempts} ({Math.round(f.rate * 100)}%)</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      <div className="hint-text">
+        💡 הניתוח מבוסס על התרגול האחרון (עד 10 מפגשים בכל מקצוע), עם מגמה מול התקופה שלפניה. ▲ = שיפור, ▼ = ירידה.
+      </div>
+    </div>
+  );
+}
 
 // Quick daily-quota editor: the parent can raise/lower each subject's daily
 // exercise count right from the parents area (0 = no daily requirement).
@@ -260,16 +337,6 @@ export default function ParentsScreen({ onBack }) {
   const activeProfile = children.find(c => c.id === activeChild);
   const childName = activeProfile ? activeProfile.name : '';
 
-  // Sort by-type stats by weakness (most wrong first)
-  const sortedTypes = stats
-    ? Object.entries(stats.byType)
-        .map(([type, s]) => ({ type, ...s, rate: s.total > 0 ? s.correct / s.total : 0 }))
-        .sort((a, b) => a.rate - b.rate)
-    : [];
-
-  const weakTypes = sortedTypes.filter(t => t.rate < 0.7 && t.total >= 2).slice(0, 3);
-  const strongTypes = sortedTypes.filter(t => t.rate >= 0.8).slice(-3).reverse();
-
   return (
     <div className="parents-screen">
       <div className="parents-header">
@@ -319,6 +386,8 @@ export default function ParentsScreen({ onBack }) {
             </div>
           )}
 
+          <InsightsSection child={activeChild} childName={childName} />
+
           <ProgressSection profile={activeProfile} progress={stats.progress} />
 
           <PlanEditor
@@ -327,43 +396,6 @@ export default function ParentsScreen({ onBack }) {
           />
 
           <ActivityChart history={history} />
-
-          {weakTypes.length > 0 && (
-            <div className="section">
-              <h2>🎯 נושאים שכדאי לתרגל עם {childName}</h2>
-              <div className="topic-list">
-                {weakTypes.map(t => (
-                  <div key={t.type} className="topic-row weak">
-                    <span className="topic-name">{TYPE_LABELS[t.type] || t.type}</span>
-                    <span className="topic-bar">
-                      <span className="bar-fill" style={{ width: `${t.rate * 100}%`, background: '#e53935' }} />
-                    </span>
-                    <span className="topic-stats">{t.correct}/{t.total} ({Math.round(t.rate * 100)}%)</span>
-                  </div>
-                ))}
-              </div>
-              <div className="hint-text">
-                💡 התרגילים האלה יוצגו יותר במפגשים הבאים עד שיצליח/תצליח.
-              </div>
-            </div>
-          )}
-
-          {strongTypes.length > 0 && (
-            <div className="section">
-              <h2>⭐ נושאים חזקים</h2>
-              <div className="topic-list">
-                {strongTypes.map(t => (
-                  <div key={t.type} className="topic-row strong">
-                    <span className="topic-name">{TYPE_LABELS[t.type] || t.type}</span>
-                    <span className="topic-bar">
-                      <span className="bar-fill" style={{ width: `${t.rate * 100}%`, background: '#43a047' }} />
-                    </span>
-                    <span className="topic-stats">{t.correct}/{t.total} ({Math.round(t.rate * 100)}%)</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {!IS_WEB && (
             <div className="section">
@@ -412,7 +444,7 @@ export default function ParentsScreen({ onBack }) {
                             <div key={j} className={`detail-row ${cls}`}>
                               <span className="d-icon">{icon}</span>
                               <span className="d-q" dir={r.dir || 'rtl'}>{r.question.split('\n')[0]}</span>
-                              <span className="d-ans">תשובה: <strong>{r.answer}</strong></span>
+                              <span className="d-ans">תשובה: <strong>{/^[<>=]$/.test(String(r.answer)) ? <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{r.answer}</span> : r.answer}</strong></span>
                               <span className="d-att">{r.attempts} ניסיונות</span>
                             </div>
                           );

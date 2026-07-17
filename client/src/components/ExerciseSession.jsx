@@ -4,6 +4,7 @@ import { speakCelebration, speakEncouragement, speakEnglish } from '../lib/tts';
 import { playCorrect, playWrong } from '../lib/sfx';
 import ExerciseCard from './ExerciseCard';
 import ResultScreen from './ResultScreen';
+import LessonCard from './LessonCard';
 import './ExerciseSession.css';
 
 const MAX_ATTEMPTS = 10;
@@ -70,6 +71,7 @@ export default function ExerciseSession({ child, childName, subject, practice, p
   const [progress, setProgress] = useState(null);   // adaptive-difficulty outcome
   const [planStatus, setPlanStatus] = useState(null); // daily summer-plan status
   const [sticker, setSticker] = useState(null);       // today's earned sticker
+  const [lesson, setLesson] = useState(null);         // mini-lesson before a new topic
   const [attempts, setAttempts] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
   const [showHint, setShowHint] = useState(false);
@@ -98,7 +100,7 @@ export default function ExerciseSession({ child, childName, subject, practice, p
     if (isMath && !operation) return;
     setLoading(true);
     fetchExercises(child, date, subject, operation || undefined)
-      .then(data => { setExercises(data.exercises); setLoading(false); })
+      .then(data => { setExercises(data.exercises); setLesson(data.lesson || null); setLoading(false); })
       .catch(err => { setError(err.message); setLoading(false); });
   }, [child, date, subject, operation, isMath, practice, practiceType]);
 
@@ -207,6 +209,11 @@ export default function ExerciseSession({ child, childName, subject, practice, p
       <p>שגיאה: {error}</p>
       <button onClick={onBack}>חזור</button>
     </div>
+  );
+
+  // A new topic opens with its mini-lesson (learning before practising).
+  if (lesson) return (
+    <LessonCard lesson={lesson} childName={childName} onStart={() => setLesson(null)} />
   );
 
   // Nothing left to practise – every mistake was already conquered.

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import HebrewKeyboard from './HebrewKeyboard';
-import { speakHebrew, speakEnglish } from '../lib/tts';
+import { speakHebrew, speakEnglish, speakParts } from '../lib/tts';
 import './ExerciseCard.css';
 
 const TYPE_LABELS = {
@@ -80,11 +80,32 @@ const TYPE_LABELS = {
   en_scramble: '🔤 סידור אותיות',
   en_sentence_fill: '📝 השלמת משפט',
   en_phrase: '💬 ביטויים',
+  ordinal_position: '🚩 מי בתור?',
+  count_category: '🔎 ספירה חכמה',
+  days_of_week: '📅 ימי השבוע',
+  clock_reading: '🕒 מה השעה?',
+  money_count: '💰 שקלים',
+  pictogram_read: '📊 גרף תמונות',
+  mul_div_facts: '✖️ כפל וחילוק',
+  he_rhyme: '🎵 חרוזים',
+  he_syllable_count: '👏 כמה הברות?',
+  he_word_blend: '🧩 איזו מילה שומעים?',
+  he_listen_story: '🎧 מקשיבים לסיפור',
+  en_rhyme: '🎶 חרוזים באנגלית',
+  en_sound_start: '🔔 צליל פותח',
+  en_sentence_pic: '💬 משפט ותמונה',
 };
 
 // English exercises where the audio (the English word) IS the answer – don't
 // auto-play or offer replay before the child answers.
 const EN_AUDIO_REVEALS_ANSWER = ['en_pic_to_word', 'en_translate_to_en'];
+
+// Some English types have no readable Hebrew question (e.g. the blanked word
+// "d_g") — speak this instruction instead, so a non-reader hears what to do.
+const EN_QUESTION_SPEECH = {
+  en_missing_letter: 'איזו אות חסרה במילה?',
+  en_letter_find: 'מצאו את האות ששומעים',
+};
 
 // Turn a symbolic math question into speakable Hebrew:
 // "3 + 4 = ?" → "3 ועוד 4 שווה כמה", "8 - ? = 5" → "8 פחות כמה שווה 5".
@@ -96,6 +117,8 @@ function mathSpeech(ex) {
     q = q
       .replace(/=\s*\?/g, ' שווה כמה')
       .replace(/\+/g, ' ועוד ')
+      .replace(/×/g, ' כפול ')
+      .replace(/\s:\s/g, ' לחלק ל-')
       .replace(/(\d+)\s*-\s*/g, '$1 פחות ')
       .replace(/___/g, ' לעומת ')
       .replace(/=/g, ' שווה ')
@@ -108,6 +131,14 @@ function mathSpeech(ex) {
 function isEmojiOption(opt) {
   const s = String(opt);
   return s.length <= 6 && !/[0-9a-zA-Zא-ת<>=]/.test(s);
+}
+
+// < and > are bidi-MIRRORED characters: inside the RTL page they render as
+// their mirror image, so the "greater than" button LOOKED like "less than"
+// and the child clicked the visually-right but logically-wrong option.
+// Rendering comparison symbols in a forced-LTR span shows the true glyph.
+function isComparisonSymbol(opt) {
+  return /^[<>=]$/.test(String(opt));
 }
 
 // Hebrew exercise types that need typing input (-> show virtual keyboard)
@@ -124,14 +155,24 @@ export default function ExerciseCard({ exercise: ex, child, subject, onAnswer, f
   const isMath = subject ? subject === 'math' : child === 'son';
   const enAudioAllowed = isEnglish && ex.audioText && !EN_AUDIO_REVEALS_ANSWER.includes(ex.type);
 
-  // Every question is read aloud: Hebrew questions with the Hebrew voice,
-  // English words with the English voice, and symbolic math converted to
-  // speakable Hebrew. English types whose audio would reveal the answer get
-  // their Hebrew question read instead.
+  // Every question is read aloud IN FULL: the Hebrew instruction with the
+  // Hebrew voice, then (for English) the English word with the English voice —
+  // so a child who can't read yet hears the whole exercise. English types
+  // whose audio would reveal the answer get only the Hebrew question.
   function speakQuestion() {
     if (isEnglish) {
-      if (enAudioAllowed) speakEnglish(ex.audioText);
-      else speakHebrew(ex.question);
+      // Hebrew instruction: type override, else the question when it's Hebrew
+      // (skip ascii-only questions like the blanked word "d_g").
+      const heText = EN_QUESTION_SPEECH[ex.type]
+        || (/[א-ת]/.test(ex.question || '') ? ex.question : '');
+      if (enAudioAllowed) {
+        speakParts([
+          { text: heText, lang: 'he' },
+          { text: ex.audioText, lang: 'en' },
+        ]);
+      } else {
+        speakHebrew(heText || ex.question);
+      }
       return;
     }
     if (isHebrew) {
@@ -208,15 +249,16 @@ export default function ExerciseCard({ exercise: ex, child, subject, onAnswer, f
           {ex.options.map(opt => {
             const optImg = ex.optionImages && ex.optionImages[opt];
             const emojiOnly = !optImg && isEmojiOption(opt);
+            const symbol = isComparisonSymbol(opt);
             return (
               <button
                 key={opt}
-                className={`option-btn ${optImg ? 'with-image' : ''} ${emojiOnly ? 'emoji-only' : ''} ${selected === opt ? (feedback === 'correct' ? 'correct' : 'wrong') : ''}`}
+                className={`option-btn ${optImg ? 'with-image' : ''} ${emojiOnly ? 'emoji-only' : ''} ${symbol ? 'symbol-opt' : ''} ${selected === opt ? (feedback === 'correct' ? 'correct' : 'wrong') : ''}`}
                 onClick={() => submitOption(opt)}
                 disabled={!!feedback}
               >
                 {optImg && <span className="opt-img">{optImg}</span>}
-                <span className="opt-text">{opt}</span>
+                <span className="opt-text" dir={symbol ? 'ltr' : undefined}>{opt}</span>
               </button>
             );
           })}

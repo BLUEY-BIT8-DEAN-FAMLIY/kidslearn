@@ -100,6 +100,10 @@ export default function ResultScreen({ childName, results, progress, planStatus,
     return { icon: '❌', cls: 'wrong' };
   }
 
+  // < and > are bidi-mirrored in the RTL page — force LTR so they show true.
+  const showAnswer = (a) =>
+    /^[<>=]$/.test(String(a)) ? <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{a}</span> : a;
+
   return (
     <div className="result-screen">
       {celebrate && <Confetti />}
@@ -138,7 +142,7 @@ export default function ResultScreen({ childName, results, progress, planStatus,
               <div key={i} className={`result-row ${s.cls}`}>
                 <span className="r-icon">{s.icon}</span>
                 <span className="r-q" dir={r.dir || 'rtl'}>{r.question.split('\n')[0]}</span>
-                <span className="r-a">תשובה: {r.answer}</span>
+                <span className="r-a">תשובה: {showAnswer(r.answer)}</span>
                 <span className="r-att">{r.attempts} {r.attempts === 1 ? 'ניסיון' : 'ניסיונות'}</span>
               </div>
             );

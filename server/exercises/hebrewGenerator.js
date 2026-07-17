@@ -305,6 +305,159 @@ const GENERATORS = {
   },
 };
 
+// ═══ Phonological awareness (research-verified: תשתית לקראת קריאה וכתיבה) ═══
+
+// Rhyme families — hand-curated (Hebrew rhymes can't be derived safely).
+// Every word carries its own emoji so pre-readers answer by picture+audio.
+const RHYME_FAMILIES = [
+  [{ w: 'דג', e: '🐟' }, { w: 'גג', e: '🏠' }, { w: 'חג', e: '🎉' }],
+  [{ w: 'כובע', e: '🎩' }, { w: 'צבע', e: '🎨' }],
+  [{ w: 'בננה', e: '🍌' }, { w: 'מתנה', e: '🎁' }, { w: 'לבנה', e: '🧱' }],
+  [{ w: 'קיר', e: '🧱' }, { w: 'שיר', e: '🎵' }, { w: 'עיר', e: '🏙️' }],
+  [{ w: 'טל', e: '💧' }, { w: 'סל', e: '🧺' }, { w: 'גל', e: '🌊' }],
+  [{ w: 'פרח', e: '🌸' }, { w: 'קרח', e: '🧊' }, { w: 'ירח', e: '🌙' }],
+  [{ w: 'לב', e: '❤️' }, { w: 'דב', e: '🐻' }],
+  [{ w: 'עץ', e: '🌳' }, { w: 'חץ', e: '🏹' }],
+  [{ w: 'חתול', e: '🐱' }, { w: 'כחול', e: '🔵' }],
+  [{ w: 'בית', e: '🏠' }, { w: 'זית', e: '🫒' }],
+  [{ w: 'דבורה', e: '🐝' }, { w: 'מנורה', e: '💡' }],
+  [{ w: 'בלון', e: '🎈' }, { w: 'סבון', e: '🧼' }, { w: 'עיתון', e: '📰' }],
+  [{ w: 'כדור', e: '⚽' }, { w: 'תנור', e: '🔥' }, { w: 'ציפור', e: '🐦' }],
+  [{ w: 'עכבר', e: '🐭' }, { w: 'מדבר', e: '🏜️' }],
+  [{ w: 'נחש', e: '🐍' }, { w: 'רעש', e: '🔊' }],
+];
+
+// Words with an unambiguous syllable count (1-3 only — 4+ is debatable).
+const SYLLABLE_WORDS = [
+  { w: 'דג', e: '🐟', s: 1, syl: 'דג' },
+  { w: 'עץ', e: '🌳', s: 1, syl: 'עץ' },
+  { w: 'לב', e: '❤️', s: 1, syl: 'לב' },
+  { w: 'שמש', e: '☀️', s: 2, syl: 'שֶׁ, מֶשׁ' },
+  { w: 'כלב', e: '🐶', s: 2, syl: 'כֶּ, לֶב' },
+  { w: 'פרח', e: '🌸', s: 2, syl: 'פֶּ, רַח' },
+  { w: 'ספר', e: '📖', s: 2, syl: 'סֵ, פֶר' },
+  { w: 'שולחן', e: '🪑', s: 2, syl: 'שׁוּל, חָן' },
+  { w: 'בננה', e: '🍌', s: 3, syl: 'בָּ, נָ, נָה' },
+  { w: 'טלפון', e: '📱', s: 3, syl: 'טֶ, לֶ, פוֹן' },
+  { w: 'מכונית', e: '🚗', s: 3, syl: 'מְ, כוֹ, נִית' },
+  { w: 'שוקולד', e: '🍫', s: 3, syl: 'שׁוֹ, קוֹ, לָד' },
+];
+
+// Blend targets: hear the word in slow pieces, pick its picture.
+const BLEND_WORDS = [
+  { w: 'כלב', e: '🐶', syl: 'כֶּ... לֶב' },
+  { w: 'בננה', e: '🍌', syl: 'בָּ... נָ... נָה' },
+  { w: 'פרפר', e: '🦋', syl: 'פַּר... פַּר' },
+  { w: 'מטריה', e: '☂️', syl: 'מִט... רִי... יָה' },
+  { w: 'תפוח', e: '🍎', syl: 'תַ... פּוּ... חַ' },
+  { w: 'ארנב', e: '🐰', syl: 'אַר... נָב' },
+  { w: 'שעון', e: '🕐', syl: 'שָׁ... עוֹן' },
+  { w: 'בלון', e: '🎈', syl: 'בָּ... לוֹן' },
+  { w: 'גיטרה', e: '🎸', syl: 'גִי... טָ... רָה' },
+  { w: 'מספריים', e: '✂️', syl: 'מִס... פָּ... רַיִם' },
+];
+
+// Listening-comprehension micro-stories, generated from templates with
+// correct grammatical gender. Everything is audio — no reading required.
+const STORY_NAMES = [
+  { n: 'דני', g: 'm' }, { n: 'רונה', g: 'f' }, { n: 'תום', g: 'm' }, { n: 'נועה', g: 'f' },
+];
+const STORY_PLACES = [
+  { w: 'לגן', e: '🏫' }, { w: 'לים', e: '🏖️' }, { w: 'לפארק', e: '🌳' }, { w: 'לשוק', e: '🛒' },
+];
+const STORY_ITEMS = [
+  { plural: 'תפוחים', e: '🍎' }, { plural: 'בלונים', e: '🎈' },
+  { plural: 'כדורים', e: '⚽' }, { plural: 'ספרים', e: '📖' }, { plural: 'תותים', e: '🍓' },
+];
+
+const PHONO_GENERATORS = {
+  he_rhyme: () => {
+    const family = pick(RHYME_FAMILIES);
+    const [target, correct] = shuffle(family).slice(0, 2);
+    const wrong = shuffle(RHYME_FAMILIES.filter(f => f !== family))
+      .slice(0, 2)
+      .map(f => pick(f));
+    const options = shuffle([correct, ...wrong]);
+    const optionImages = {};
+    for (const o of options) optionImages[o.w] = o.e;
+    return {
+      type: 'he_rhyme', difficulty: 1, dir: 'rtl',
+      question: `איזו מילה מתחרזת עם "${target.w}"?`,
+      displayImage: target.e,
+      audioText: `איזו מילה מתחרזת עם ${target.w}? האפשרויות הן: ${options.map(o => o.w).join(', ')}`,
+      answer: correct.w,
+      options: options.map(o => o.w),
+      optionImages,
+      hint: `מקשיבים לסוף המילה: ${target.w}...`,
+    };
+  },
+  he_syllable_count: () => {
+    const word = pick(SYLLABLE_WORDS);
+    return {
+      type: 'he_syllable_count', difficulty: 2, dir: 'rtl',
+      question: `כמה הברות יש במילה "${word.w}"?`,
+      displayImage: word.e,
+      audioText: `כמה הברות יש במילה ${word.w}? מקשיבים: ${word.syl}`,
+      answer: word.s,
+      options: shuffle([1, 2, 3]),
+      hint: `מוחאים כף על כל חלק: ${word.syl}`,
+    };
+  },
+  he_word_blend: () => {
+    const word = pick(BLEND_WORDS);
+    const wrong = shuffle(BLEND_WORDS.filter(x => x.w !== word.w)).slice(0, 2);
+    return {
+      type: 'he_word_blend', difficulty: 2, dir: 'rtl',
+      question: `🎧 איזו מילה שומעים?`,
+      audioText: `מקשיבים טוב ומגלים איזו מילה מתחבאת: ${word.syl}. ${word.syl}`,
+      answer: word.e,
+      options: shuffle([word, ...wrong]).map(x => x.e),
+      hint: `מחברים את החלקים לאט: ${word.syl}`,
+    };
+  },
+  he_listen_story: () => {
+    const name = pick(STORY_NAMES);
+    const place = pick(STORY_PLACES);
+    const item = pick(STORY_ITEMS);
+    const count = randInt(2, 5);
+    const went = name.g === 'm' ? 'הלך' : 'הלכה';
+    const took = name.g === 'm' ? 'ולקח' : 'ולקחה';
+    const story = `${name.n} ${went} ${place.w} ${took} ${count} ${item.plural}.`;
+    const variant = pick(['what', 'howmany', 'where']);
+    if (variant === 'howmany') {
+      return {
+        type: 'he_listen_story', difficulty: 2, dir: 'rtl',
+        question: `🎧 מקשיבים לסיפור ועונים`,
+        audioText: `${story} כמה ${item.plural} ${name.g === 'm' ? 'לקח' : 'לקחה'} ${name.n}?`,
+        answer: count,
+        hint: `מקשיבים שוב: ${story}`,
+      };
+    }
+    if (variant === 'where') {
+      const wrongPlaces = shuffle(STORY_PLACES.filter(p => p !== place)).slice(0, 2);
+      return {
+        type: 'he_listen_story', difficulty: 2, dir: 'rtl',
+        question: `🎧 מקשיבים לסיפור ועונים`,
+        audioText: `${story} לאן ${went} ${name.n}?`,
+        answer: place.e,
+        options: shuffle([place, ...wrongPlaces]).map(p => p.e),
+        hint: `מקשיבים שוב: ${story}`,
+      };
+    }
+    const wrongItems = shuffle(STORY_ITEMS.filter(x => x !== item)).slice(0, 2);
+    return {
+      type: 'he_listen_story', difficulty: 2, dir: 'rtl',
+      question: `🎧 מקשיבים לסיפור ועונים`,
+      audioText: `${story} מה ${name.g === 'm' ? 'לקח' : 'לקחה'} ${name.n}?`,
+      answer: item.e,
+      options: shuffle([item, ...wrongItems]).map(x => x.e),
+      hint: `מקשיבים שוב: ${story}`,
+    };
+  },
+};
+
+Object.assign(GENERATORS, PHONO_GENERATORS);
+
 const TYPES_BY_DIFFICULTY = {
   1: ['name_letter', 'find_letter', 'odd_one_out'],
   2: ['word_starts_with', 'match_letter', 'first_letter_of_word', 'count_letter', 'fill_letter_choice'],
@@ -320,20 +473,21 @@ const ALL_TYPES = [...Object.values(TYPES_BY_DIFFICULTY).flat(), 'read_word', 'l
 // may draw from. This is a global 4-stage ladder: the parent picks the
 // starting stage per child (hebrewLevel) and the adaptive mechanism climbs.
 const PREP_STAGES = {
-  // Stage 1 – הכרת האותיות
+  // Stage 1 – הכרת האותיות + חרוזים (מודעות פונולוגית מוקדמת)
   1: {
     slots: [...Array(9).fill(1), ...Array(6).fill(2)],
     pools: {
-      1: ['name_letter', 'find_letter', 'odd_one_out'],
-      2: ['word_starts_with', 'match_letter'],
+      1: ['name_letter', 'find_letter', 'odd_one_out', 'he_rhyme', 'he_listen_story'],
+      2: ['word_starts_with', 'match_letter', 'he_rhyme'],
     },
   },
-  // Stage 2 – צליל פותח
+  // Stage 2 – צליל פותח, הברות ומיזוג צלילים
   2: {
     slots: [...Array(6).fill(1), ...Array(7).fill(2), ...Array(2).fill(3)],
     pools: {
-      1: ['name_letter', 'find_letter', 'odd_one_out'],
-      2: ['word_starts_with', 'match_letter', 'first_letter_of_word', 'count_letter'],
+      1: ['name_letter', 'find_letter', 'odd_one_out', 'he_rhyme'],
+      2: ['word_starts_with', 'match_letter', 'first_letter_of_word', 'count_letter',
+          'he_rhyme', 'he_syllable_count', 'he_word_blend', 'he_listen_story'],
       3: ['type_letter'],
     },
   },
@@ -342,7 +496,8 @@ const PREP_STAGES = {
     slots: [...Array(4).fill(1), ...Array(7).fill(2), ...Array(4).fill(3)],
     pools: {
       1: ['name_letter', 'find_letter', 'odd_one_out'],
-      2: ['word_starts_with', 'match_letter', 'first_letter_of_word', 'count_letter', 'fill_letter_choice', 'read_word'],
+      2: ['word_starts_with', 'match_letter', 'first_letter_of_word', 'count_letter', 'fill_letter_choice', 'read_word',
+          'he_word_blend', 'he_syllable_count', 'he_listen_story'],
       3: ['type_letter', 'fill_letter'],
     },
   },
@@ -351,7 +506,8 @@ const PREP_STAGES = {
     slots: [...Array(2).fill(1), ...Array(7).fill(2), ...Array(6).fill(3)],
     pools: {
       1: ['odd_one_out', 'find_letter'],
-      2: ['read_word', 'last_letter', 'fill_letter_choice', 'first_letter_of_word', 'count_letter', 'word_starts_with'],
+      2: ['read_word', 'last_letter', 'fill_letter_choice', 'first_letter_of_word', 'count_letter', 'word_starts_with',
+          'he_listen_story'],
       3: ['type_letter', 'fill_letter'],
     },
   },

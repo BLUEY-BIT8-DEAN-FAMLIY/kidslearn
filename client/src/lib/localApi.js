@@ -10,6 +10,8 @@ import {
   sanitizeDailyPlan, sanitizePlanUntil, planIsActive, fitSessionToCount,
 } from '../../../server/exercises/curriculum.js';
 import { pickNewSticker, computePracticeStreak, computeAchievements } from '../../../server/exercises/rewards.js';
+import { computeInsights } from '../../../server/exercises/insights.js';
+import { pickLessonForSession, experiencedFamilies } from '../../../server/exercises/lessons.js';
 
 const K = {
   history: 'kidslearn:history',
@@ -217,11 +219,16 @@ function getPlanStatus(profile, date) {
   const subjects = Object.entries(profile.dailyPlan).map(([subject, target]) => ({
     subject, target, done: countTodayExercises(profile.id, subject, date),
   }));
+  // Sticker = per-day completion lock: raising the quota mid-day never
+  // "un-completes" a day that was already finished (mirrors server/storage.js).
+  const rec = read(K.rewards, {})[profile.id];
+  const lockedComplete = !!(rec?.stickers || []).some(s => s.date === date);
   return {
     date,
     until: profile.planUntil,
     subjects,
-    complete: subjects.every(s => s.done >= s.target),
+    complete: lockedComplete || subjects.every(s => s.done >= s.target),
+    lockedComplete,
   };
 }
 
@@ -236,6 +243,22 @@ function maybeAwardSticker(profile, date, planStatus) {
   all[profile.id] = rec;
   write(K.rewards, all);
   return emoji;
+}
+
+export async function fetchInsights(child) {
+  const profile = getChildProfile(child);
+  if (!profile) throw new Error('Unknown child');
+  const sessions = readHistory()[child] || [];
+  const stages = {};
+  for (const s of profile.subjects) {
+    const p = getProgress(child, s);
+    stages[s] = s === 'english'
+      ? Math.max(p.stage, profile.englishLevel || 1)
+      : s === 'hebrew'
+        ? Math.max(p.stage, profile.hebrewLevel || 1)
+        : Math.max(p.stage, profile.mathStage || 1);
+  }
+  return { child, insights: computeInsights({ profile, sessions, stages }) };
 }
 
 export async function fetchRewards(child) {
@@ -349,16 +372,30 @@ export async function fetchExercises(child, date, subject, operation = 'mix') {
         : generateMathExercises(weakness, reviewExercises, profile.mathLevel, operation);
 
   // Daily summer plan: size the session to what's left of today's quota.
-  const planTarget = planIsActive(profile, date) ? profile.dailyPlan[chosen] : null;
+  // A completed (locked) day serves regular sessions — see getPlanStatus.
+  const planNow = getPlanStatus(profile, date);
   let exercises;
-  if (planTarget) {
-    const remaining = planTarget - countTodayExercises(child, chosen, date);
+  if (planNow && !planNow.complete) {
+    const target = profile.dailyPlan[chosen];
+    const remaining = target ? target - countTodayExercises(child, chosen, date) : 0;
     exercises = remaining > 0 ? fitSessionToCount(makeSession, remaining) : makeSession();
   } else {
     exercises = makeSession();
   }
 
-  return { child, subject: chosen, date, exercises, weakness, track: profile.grade || null, stage: effectiveStage };
+  // Mini-lesson on first encounter with a topic family (mirrors the server).
+  const progressAll = read(K.progress, {});
+  const seenKeys = Array.isArray(progressAll[`lessons:${child}`]) ? progressAll[`lessons:${child}`] : [];
+  const lesson = pickLessonForSession(exercises, {
+    seenKeys,
+    experiencedKeys: experiencedFamilies(readHistory()[child]),
+  });
+  if (lesson && !seenKeys.includes(lesson.key)) {
+    progressAll[`lessons:${child}`] = [...seenKeys, lesson.key];
+    write(K.progress, progressAll);
+  }
+
+  return { child, subject: chosen, date, exercises, weakness, track: profile.grade || null, stage: effectiveStage, lesson };
 }
 
 export async function saveSession(payload) {

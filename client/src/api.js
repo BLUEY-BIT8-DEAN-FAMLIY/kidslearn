@@ -58,6 +58,12 @@ async function serverFetchRewards(child) {
   return res.json();
 }
 
+async function serverFetchInsights(child) {
+  const res = await fetch(`${BASE}/insights/${child}`);
+  if (!res.ok) throw new Error('Failed to fetch insights');
+  return res.json();
+}
+
 async function serverAddChild(payload) {
   const res = await fetch(`${BASE}/children`, {
     method: 'POST',
@@ -181,6 +187,27 @@ async function serverLogout(token) {
   return { ok: true };
 }
 
+// Silent sign-in on a trusted family machine (desktop only) — no login screen.
+async function serverDeviceLogin() {
+  const res = await fetch(`${BASE}/auth/device`);
+  if (!res.ok) throw new Error('device not trusted');
+  return res.json();
+}
+
+// "Sign in with Google" (desktop only): the server opens the system browser;
+// the app then polls for the finished login.
+async function serverGoogleStart() {
+  const res = await fetch(`${BASE}/auth/google/start`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'פתיחת ההתחברות עם Google נכשלה');
+  return data; // { ok, url, opened }
+}
+
+async function serverGoogleResult() {
+  const res = await fetch(`${BASE}/auth/google/result`);
+  return res.json(); // { pending: true } | { ok, token, user }
+}
+
 // ── Public API (picks local or server) ──────────────────────────────────
 export const fetchExercises   = WEB ? local.fetchExercises   : serverFetchExercises;
 export const saveSession      = WEB ? local.saveSession      : serverSaveSession;
@@ -189,6 +216,7 @@ export const fetchHistory     = WEB ? local.fetchHistory     : serverFetchHistor
 export const fetchChildren    = WEB ? local.fetchChildren    : serverFetchChildren;
 export const fetchMistakes    = WEB ? local.fetchMistakes    : serverFetchMistakes;
 export const fetchRewards     = WEB ? local.fetchRewards     : serverFetchRewards;
+export const fetchInsights    = WEB ? local.fetchInsights    : serverFetchInsights;
 export const addChild         = WEB ? local.addChild         : serverAddChild;
 export const updateChild      = WEB ? local.updateChild      : serverUpdateChild;
 export const deleteChild      = WEB ? local.deleteChild      : serverDeleteChild;
@@ -203,5 +231,8 @@ export const registerAccount  = WEB ? local.registerAccount  : serverRegister;
 export const loginAccount     = WEB ? local.loginAccount     : serverLogin;
 export const meAccount        = WEB ? local.meAccount        : serverMe;
 export const logoutAccount    = WEB ? local.logoutAccount    : serverLogout;
+export const deviceLogin      = WEB ? (async () => { throw new Error('web'); }) : serverDeviceLogin;
+export const googleLoginStart  = WEB ? (async () => { throw new Error('לא זמין בגרסת הדפדפן'); }) : serverGoogleStart;
+export const googleLoginResult = WEB ? (async () => ({ pending: true }))                          : serverGoogleResult;
 
 export const IS_WEB = WEB;

@@ -295,3 +295,29 @@
 }
 .quota-save:hover { background: #3f51b5; }
 .quota-save:disabled { opacity: 0.6; }
+
+/* Learning-analysis section */
+.insight-subject { margin-bottom: 18px; }
+.insight-header {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: #333;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.insight-meta { font-size: 0.8rem; font-weight: 500; color: #888; }
+.insight-rec {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.rec-icon { font-size: 1.3rem; }
+.topic-trend { font-size: 0.8rem; }

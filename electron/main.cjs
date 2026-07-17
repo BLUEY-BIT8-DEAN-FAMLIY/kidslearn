@@ -99,7 +99,10 @@ async function createWindow() {
       autoplayPolicy: 'no-user-gesture-required',
     },
   });
-  Menu.setApplicationMenu(null);
+  // Keep the menu bar hidden (autoHideMenuBar) but DO register an edit menu:
+  // setApplicationMenu(null) would also drop the Ctrl+C/V/X/A/Z accelerators,
+  // which are what let parents paste a password into the login screen.
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'editMenu' }]));
 
   // Show a loading screen immediately so the window is never blank.
   mainWindow.loadURL(loadingHtml());

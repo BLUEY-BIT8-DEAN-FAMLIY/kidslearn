@@ -113,6 +113,16 @@
   line-height: 1.15;
 }
 
+/* Comparison symbols (< > =) — big, and forced LTR so bidi never mirrors them */
+.option-btn.symbol-opt .opt-text {
+  font-size: 2.6rem;
+  font-weight: 800;
+  line-height: 1.1;
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+}
+
 .big-word {
   font-size: 2.4rem;
   font-weight: 700;

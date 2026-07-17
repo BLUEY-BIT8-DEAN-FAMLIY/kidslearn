@@ -5,7 +5,7 @@ import ParentsScreen from './components/ParentsScreen';
 import WelcomeScreen from './components/WelcomeScreen';
 import MistakesScreen from './components/MistakesScreen';
 import AuthScreen from './components/AuthScreen';
-import { IS_WEB, meAccount, logoutAccount } from './api';
+import { IS_WEB, meAccount, logoutAccount, deviceLogin } from './api';
 import './App.css';
 
 // Remember the guest choice so returning visitors skip the welcome screen.
@@ -31,15 +31,26 @@ export default function App() {
 
   useEffect(() => {
     if (IS_WEB) return;
-    const stored = loadAuth();
-    if (!stored?.token) { setAuthReady(true); return; }
     let alive = true;
+
+    // A trusted family machine signs in silently — no login screen at home.
+    const trySilent = () => deviceLogin()
+      .then(r => {
+        if (!alive || !r?.ok) return;
+        const a = { token: r.token, email: r.user.email, name: r.user.name };
+        saveAuth(a);
+        setAuth(a);
+      })
+      .catch(() => {})   // not trusted yet → the login/register screen shows
+      .finally(() => { if (alive) setAuthReady(true); });
+
+    const stored = loadAuth();
+    if (!stored?.token) { trySilent(); return () => { alive = false; }; }
     meAccount(stored.token)
       .then(r => {
         if (!alive) return;
-        if (r?.ok) setAuth({ token: stored.token, email: r.user.email, name: r.user.name });
-        else { clearAuth(); setAuth(null); }
-        setAuthReady(true);
+        if (r?.ok) { setAuth({ token: stored.token, email: r.user.email, name: r.user.name }); setAuthReady(true); }
+        else { clearAuth(); setAuth(null); trySilent(); }   // stale token → silent re-login
       })
       .catch(() => { if (alive) setAuthReady(true); });   // transient error: keep the stored session
     return () => { alive = false; };

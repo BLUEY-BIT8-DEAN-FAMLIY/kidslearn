@@ -174,7 +174,7 @@ export function applySessionToProgress(record, date, rate) {
 
 export const PLAN_DEFAULT_UNTIL = '2026-08-31';
 export const PLAN_MAX_PER_SUBJECT = 50;
-export const PLAN_SESSION_MAX = 30;   // a single session never exceeds this
+export const PLAN_SESSION_MAX = PLAN_MAX_PER_SUBJECT;   // one session can cover the whole daily quota
 export const PLAN_SESSION_MIN = 3;
 
 const VALID_PLAN_SUBJECTS = ['math', 'hebrew', 'english'];

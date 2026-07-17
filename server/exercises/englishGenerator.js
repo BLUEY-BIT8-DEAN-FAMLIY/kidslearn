@@ -498,6 +498,111 @@ const GENERATORS = {
       dedupKey: `en_sentence_fill|${sen.a}`,
     };
   },
+  // ── Phonological awareness (GEPF Pre-Foundation, research-verified) ──────
+  // Rhyme families (CVC onset-rime) — audio + picture, no reading required.
+  en_rhyme: () => {
+    const FAMILIES = [
+      [['cat', '🐱'], ['hat', '🎩'], ['bat', '🦇']],
+      [['dog', '🐶'], ['frog', '🐸'], ['log', '🪵']],
+      [['sun', '☀️'], ['run', '🏃'], ['bun', '🥯']],
+      [['cake', '🍰'], ['snake', '🐍']],
+      [['star', '⭐'], ['car', '🚗']],
+      [['moon', '🌙'], ['spoon', '🥄']],
+      [['bee', '🐝'], ['tree', '🌳'], ['three', '3️⃣']],
+      [['mouse', '🐭'], ['house', '🏠']],
+      [['goat', '🐐'], ['boat', '⛵'], ['coat', '🧥']],
+      [['fish', '🐟'], ['dish', '🍽️']],
+    ];
+    const family = pick(FAMILIES);
+    const [target, correct] = shuffle(family).slice(0, 2);
+    const wrong = shuffle(FAMILIES.filter(f => f !== family)).slice(0, 2).map(f => pick(f));
+    const options = shuffle([correct, ...wrong]);
+    const optionImages = {};
+    for (const [w, e] of options) optionImages[w] = e;
+    return {
+      type: 'en_rhyme', difficulty: 2, dir: 'rtl',
+      question: `איזו מילה מתחרזת עם "${target[0]}"?`,
+      displayImage: target[1],
+      audioText: `${target[0]}. ${options.map(o => o[0]).join(', ')}`,
+      audioLang: 'en',
+      answer: correct[0],
+      options: options.map(o => o[0]),
+      optionImages,
+      hint: `מקשיבים לסוף המילה: ${target[0]}`,
+      dedupKey: `en_rhyme|${target[0]}|${correct[0]}`,
+    };
+  },
+  // Opening sound: hear a word, pick the picture that starts the same.
+  // Unambiguous single consonants only — no digraphs (ch/sh/th).
+  en_sound_start: (band, hard) => {
+    const clear = 'bdfghjlmnprstw';
+    const candidates = WORDS.filter(w => clear.includes(w.en[0]) && /^[a-z]+$/.test(w.en));
+    const target = pick(candidates);
+    const sameSound = candidates.filter(w => w.en[0] === target.en[0] && w.en !== target.en);
+    if (!sameSound.length) return GENERATORS.en_rhyme();   // rare pool gap
+    const correct = pick(sameSound);
+    const wrong = [];
+    const seen = new Set([target.en[0]]);
+    for (const w of shuffle(candidates)) {
+      if (wrong.length === 2) break;
+      if (seen.has(w.en[0])) continue;
+      seen.add(w.en[0]);
+      wrong.push(w);
+    }
+    const options = shuffle([correct, ...wrong]);
+    return {
+      type: 'en_sound_start', difficulty: 2, dir: 'rtl',
+      question: `איזו תמונה מתחילה באותו צליל כמו "${target.en}"?`,
+      displayImage: target.emoji,
+      audioText: `${target.en}. ${options.map(o => o.en).join(', ')}`,
+      audioLang: 'en',
+      answer: correct.emoji,
+      options: options.map(o => o.emoji),
+      hint: `${target.en} מתחיל בצליל של האות ${target.en[0].toUpperCase()}`,
+      dedupKey: `en_sound_start|${target.en}|${correct.en}`,
+    };
+  },
+  // Sentence ↔ picture matching (A1 written reception, Pre-A1 Starters style).
+  en_sentence_pic: () => {
+    const SCENES = [
+      { s: 'The cat is black.', ok: '🐈‍⬛', near: ['🐈', '🐕'] },
+      { s: 'The dog has a ball.', ok: '🐶⚽', near: ['🐱⚽', '🐶🦴'] },
+      { s: 'I see two birds.', ok: '🐦🐦', near: ['🐦', '🐦🐦🐦'] },
+      { s: 'The ball is red.', ok: '🔴⚽', near: ['🔵⚽', '🔴🎈'] },
+      { s: 'The girl eats an apple.', ok: '👧🍎', near: ['👦🍎', '👧🍌'] },
+      { s: 'The boy reads a book.', ok: '👦📖', near: ['👧📖', '👦⚽'] },
+      { s: 'The fish is in the water.', ok: '🐟💧', near: ['🐟🔥', '🐦💧'] },
+      { s: 'I see three stars.', ok: '⭐⭐⭐', near: ['⭐⭐', '⭐'] },
+      { s: 'The baby is sleeping.', ok: '👶😴', near: ['👶😀', '👧😴'] },
+      { s: 'The car is blue.', ok: '🔵🚗', near: ['🔴🚗', '🔵🚌'] },
+      { s: 'The monkey eats a banana.', ok: '🐵🍌', near: ['🐵🍎', '🐶🍌'] },
+      { s: 'The bird is on the tree.', ok: '🐦🌳', near: ['🐟🌳', '🐦🏠'] },
+    ];
+    const scene = pick(SCENES);
+    if (pick([true, false])) {
+      return {
+        type: 'en_sentence_pic', difficulty: 4, dir: 'ltr',
+        question: scene.s,
+        audioText: scene.s, audioLang: 'en',
+        answer: scene.ok,
+        options: shuffle([scene.ok, ...scene.near]),
+        hint: `קוראים לאט ובודקים שכל מילה מתאימה לתמונה`,
+        dedupKey: `en_sentence_pic|${scene.s}`,
+      };
+    }
+    // No English audio here — reading the correct sentence aloud would give
+    // the answer away. The Hebrew question is read by the universal TTS.
+    const wrongSentences = shuffle(SCENES.filter(x => x !== scene)).slice(0, 2).map(x => x.s);
+    return {
+      type: 'en_sentence_pic', difficulty: 4, dir: 'rtl',
+      question: `איזה משפט מתאר את התמונה?`,
+      displayImage: scene.ok,
+      answer: scene.s,
+      options: shuffle([scene.s, ...wrongSentences]),
+      hint: `מסתכלים על התמונה וקוראים כל משפט`,
+      dedupKey: `en_sentence_pic|pic|${scene.s}`,
+    };
+  },
   en_phrase: () => {
     const p = pick(PHRASES);
     if (pick([true, false])) {
@@ -531,23 +636,23 @@ const STAGE_PLANS = {
   2: ['en_word_to_pic', 'en_word_to_pic', 'en_pic_to_word', 'en_pic_to_word',
       'en_listen_pick', 'en_listen_pick', 'en_color', 'en_verb',
       'en_number_word', 'en_count', 'en_first_letter', 'en_last_letter',
-      'en_odd_one_out', 'en_translate_to_he', 'en_word_to_pic'],
+      'en_odd_one_out', 'en_rhyme', 'en_sound_start'],
   3: ['en_pic_to_word', 'en_translate_to_he', 'en_translate_to_he',
       'en_translate_to_en', 'en_translate_to_en', 'en_missing_letter',
       'en_missing_letter', 'en_opposite', 'en_verb', 'en_scramble',
-      'en_scramble', 'en_spell', 'en_odd_one_out', 'en_phrase', 'en_color'],
+      'en_scramble', 'en_spell', 'en_odd_one_out', 'en_rhyme', 'en_sound_start'],
   4: ['en_translate_to_he', 'en_translate_to_he', 'en_translate_to_en',
       'en_translate_to_en', 'en_missing_letter', 'en_opposite', 'en_opposite',
       'en_plural', 'en_scramble', 'en_spell', 'en_spell', 'en_sentence_fill',
-      'en_phrase', 'en_odd_one_out', 'en_last_letter'],
+      'en_phrase', 'en_odd_one_out', 'en_sentence_pic'],
   5: ['en_spell', 'en_spell', 'en_scramble', 'en_scramble', 'en_sentence_fill',
       'en_sentence_fill', 'en_translate_to_en', 'en_missing_letter',
       'en_opposite', 'en_opposite', 'en_plural', 'en_plural', 'en_phrase',
-      'en_phrase', 'en_translate_to_he'],
+      'en_sentence_pic', 'en_translate_to_he'],
   6: ['en_spell', 'en_spell', 'en_spell', 'en_scramble', 'en_scramble',
       'en_sentence_fill', 'en_sentence_fill', 'en_missing_letter',
       'en_missing_letter', 'en_opposite', 'en_plural', 'en_plural',
-      'en_phrase', 'en_phrase', 'en_translate_to_en'],
+      'en_phrase', 'en_sentence_pic', 'en_translate_to_en'],
 };
 
 export const ENGLISH_STAGES = 6;

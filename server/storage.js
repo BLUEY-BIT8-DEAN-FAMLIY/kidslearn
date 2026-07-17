@@ -6,12 +6,14 @@ import {
   sanitizeDailyPlan, sanitizePlanUntil, planIsActive,
 } from './exercises/curriculum.js';
 import { pickNewSticker, computePracticeStreak, computeAchievements } from './exercises/rewards.js';
+import { resolveDataDir } from './dataDir.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // When packaged in Electron, KIDSLEARN_DATA_DIR points to a writable location
-// (userData) since the app bundle itself is read-only (asar archive).
-const DATA_DIR = process.env.KIDSLEARN_DATA_DIR || path.join(__dirname, 'data');
+// (userData). A plain `node server/index.js` has no such env, so resolveDataDir
+// falls back to the SAME userData location — keeping one shared data store.
 const BUNDLED_DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = resolveDataDir(BUNDLED_DATA_DIR);
 const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const REVIEW_FILE = path.join(DATA_DIR, 'review.json');
@@ -304,6 +306,11 @@ export function countTodayExercises(child, subject, date) {
 /**
  * Today's plan status for a child: per-subject done/target and whether the
  * whole day is complete. Returns null when no plan is active for `date`.
+ *
+ * A completed day STAYS completed: the awarded sticker is the per-day
+ * completion lock, so raising the quota mid-day (e.g. 30 → 40 after the kids
+ * already finished) never "un-completes" today — the new quota simply applies
+ * from tomorrow.
  */
 export function getPlanStatus(profile, date) {
   if (!planIsActive(profile, date)) return null;
@@ -311,11 +318,14 @@ export function getPlanStatus(profile, date) {
     const done = countTodayExercises(profile.id, subject, date);
     return { subject, target, done };
   });
+  const rec = readRewardsAll()[profile.id];
+  const lockedComplete = !!(rec?.stickers || []).some(s => s.date === date);
   return {
     date,
     until: profile.planUntil,
     subjects,
-    complete: subjects.every(s => s.done >= s.target),
+    complete: lockedComplete || subjects.every(s => s.done >= s.target),
+    lockedComplete,
   };
 }
 
@@ -365,6 +375,22 @@ export function getRewards(child) {
     stickers,
     achievements: computeAchievements({ sessions, stickers, streak }),
   };
+}
+
+// === MINI-LESSONS (שיעורונים) — shown once per child per topic family ===
+// Stored in progress.json under a non-colliding key namespace (`lessons:<id>`).
+
+export function getSeenLessons(child) {
+  const v = readProgressAll()[`lessons:${child}`];
+  return Array.isArray(v) ? v : [];
+}
+
+export function markLessonSeen(child, key) {
+  const all = readProgressAll();
+  const cur = Array.isArray(all[`lessons:${child}`]) ? all[`lessons:${child}`] : [];
+  if (cur.includes(key)) return;
+  all[`lessons:${child}`] = [...cur, key];
+  writeProgressAll(all);
 }
 
 // === MISTAKES COLLECTION (תרגול טעויות) ===

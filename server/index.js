@@ -8,6 +8,8 @@ import { generateMathExercises, generatePrepMath } from './exercises/mathGenerat
 import { generateHebrewExercises } from './exercises/hebrewGenerator.js';
 import { generateEnglishExercises } from './exercises/englishGenerator.js';
 import { fitSessionToCount, planIsActive } from './exercises/curriculum.js';
+import { computeInsights } from './exercises/insights.js';
+import { pickLessonForSession, experiencedFamilies } from './exercises/lessons.js';
 import {
   saveSession, computeWeakness, getStats, readHistory, readConfig, writeConfig,
   popReviewQueue, addWrongToReviewQueue,
@@ -16,10 +18,17 @@ import {
   getMistakes, updateMistakes,
   countTodayExercises, getPlanStatus,
   maybeAwardSticker, getRewards,
+  getSeenLessons, markLessonSeen,
 } from './storage.js';
 import {
   registerUser, loginUser, userForToken, logoutToken, userCount,
+  rememberDevice, forgetDevice, deviceLogin, externalLogin,
 } from './auth.js';
+import {
+  startGoogleFlow, finishGoogleFlow, setGoogleResult, takeGoogleResult,
+  GOOGLE_CALLBACK_PATH,
+} from './supabaseAuth.js';
+import { spawn } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -44,6 +53,7 @@ app.post('/api/auth/register', (req, res) => {
   const { email, password, name } = req.body || {};
   const r = registerUser({ email, password, name });
   if (r.error) return res.status(400).json({ error: r.error });
+  rememberDevice(r.user.email);   // this machine won't ask again
   res.json({ ok: true, token: r.token, user: r.user });
 });
 
@@ -51,6 +61,14 @@ app.post('/api/auth/login', (req, res) => {
   const { email, password } = req.body || {};
   const r = loginUser({ email, password });
   if (r.error) return res.status(401).json({ error: r.error });
+  rememberDevice(r.user.email);   // this machine won't ask again
+  res.json({ ok: true, token: r.token, user: r.user });
+});
+
+// Silent sign-in on a trusted (family) machine — no login screen.
+app.get('/api/auth/device', (req, res) => {
+  const r = deviceLogin();
+  if (!r) return res.status(401).json({ error: 'המחשב הזה עוד לא מחובר לחשבון' });
   res.json({ ok: true, token: r.token, user: r.user });
 });
 
@@ -62,7 +80,63 @@ app.get('/api/auth/me', (req, res) => {
 
 app.post('/api/auth/logout', (req, res) => {
   logoutToken(bearerToken(req));
+  forgetDevice();   // explicit logout = this machine asks for login again
   res.json({ ok: true });
+});
+
+// ── "Sign in with Google" (via the KIDS LEARN Supabase project) ────────────
+// Google refuses to show its sign-in page inside app windows, so we open the
+// system browser and it lands back on /auth/callback below.
+function openInBrowser(url) {
+  try {
+    if (process.platform === 'win32') {
+      // rundll32 passes the URL verbatim — no cmd.exe mangling of & characters.
+      spawn('rundll32', ['url.dll,FileProtocolHandler', url], { detached: true, stdio: 'ignore' }).unref();
+    } else if (process.platform === 'darwin') {
+      spawn('open', [url], { detached: true, stdio: 'ignore' }).unref();
+    } else {
+      spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref();
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const googlePage = (ok, title, sub) => `<!doctype html><html dir="rtl" lang="he"><head>
+<meta charset="utf-8"><title>KidsLearn</title></head>
+<body style="font-family:Arial,sans-serif;background:linear-gradient(135deg,#6a5acd,#5c6bc0);color:#fff;height:100vh;margin:0;display:flex;align-items:center;justify-content:center">
+<div style="background:#fff;color:#333;border-radius:24px;padding:44px 52px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+<div style="font-size:64px;line-height:1">${ok ? '🎉' : '😕'}</div>
+<h1 style="color:#5c6bc0;margin:14px 0 6px">${title}</h1>
+<p style="color:#666;margin:0">${sub}</p>
+</div></body></html>`;
+
+app.get('/api/auth/google/start', (req, res) => {
+  const url = startGoogleFlow(PORT);
+  const opened = openInBrowser(url);
+  res.json({ ok: true, url, opened });
+});
+
+app.get(GOOGLE_CALLBACK_PATH, async (req, res) => {
+  const { code, error, error_description: errDesc } = req.query || {};
+  try {
+    if (error || !code) throw new Error(String(errDesc || 'ההתחברות בוטלה'));
+    const identity = await finishGoogleFlow(code);
+    const r = externalLogin(identity);
+    if (r.error) throw new Error(r.error);
+    rememberDevice(r.user.email);   // family machine stays signed in
+    setGoogleResult({ token: r.token, user: r.user });
+    res.send(googlePage(true, 'ההתחברות הצליחה!', 'אפשר לסגור את החלון הזה ולחזור ל-KidsLearn'));
+  } catch (e) {
+    res.status(400).send(googlePage(false, 'ההתחברות לא הושלמה', e.message));
+  }
+});
+
+app.get('/api/auth/google/result', (req, res) => {
+  const r = takeGoogleResult();
+  if (!r) return res.json({ pending: true });
+  res.json({ ok: true, token: r.token, user: r.user });
 });
 
 // Serve the built React app from client/dist when running as a packaged app
@@ -131,7 +205,21 @@ const TYPE_LABELS = {
   count_letter: 'ספירת אותיות',
   first_letter_of_word: 'אות ראשונה',
   odd_one_out: 'מה שונה',
-  read_word: 'קריאת מילה',
+read_word: 'קריאת מילה',
+  ordinal_position: 'מספרים סודרים — מי בתור',
+  count_category: 'ספירה חכמה (עם מסיחים)',
+  days_of_week: 'ימי השבוע',
+  clock_reading: 'קריאת שעון',
+  money_count: 'כסף וקניות',
+  pictogram_read: 'קריאת גרף תמונות',
+  mul_div_facts: 'כפל וחילוק',
+  he_rhyme: 'חרוזים',
+  he_syllable_count: 'ספירת הברות',
+  he_word_blend: 'הרכבת מילה מצלילים',
+  he_listen_story: 'הבנת הנשמע',
+  en_rhyme: 'חרוזים באנגלית',
+  en_sound_start: 'צליל פותח באנגלית',
+  en_sentence_pic: 'משפט ותמונה',
   last_letter: 'אות אחרונה',
   en_letter_name: 'אנגלית – שם האות',
   en_letter_find: 'אנגלית – מציאת אות',
@@ -182,17 +270,28 @@ app.get('/api/exercises/:child', (req, res) => {
         : generateMathExercises(weakness, reviewExercises, profile.mathLevel, op);
 
   // Daily summer plan: size the session to exactly what's left of today's
-  // quota, so one session (or a short top-up) completes the subject.
-  const planTarget = planIsActive(profile, date) ? profile.dailyPlan[subject] : null;
+  // quota, so one session (or a short top-up) completes the subject. Once the
+  // day is complete (sticker awarded) it stays complete — extra sessions are
+  // regular ones, and a raised quota only kicks in tomorrow.
+  const planNow = getPlanStatus(profile, date);
   let exercises;
-  if (planTarget) {
-    const remaining = planTarget - countTodayExercises(child, subject, date);
+  if (planNow && !planNow.complete) {
+    const target = profile.dailyPlan[subject];
+    const remaining = target ? target - countTodayExercises(child, subject, date) : 0;
     exercises = remaining > 0 ? fitSessionToCount(makeSession, remaining) : makeSession();
   } else {
     exercises = makeSession();
   }
 
-  return res.json({ child, subject, date, exercises, weakness, track: profile.grade || null, stage: effectiveStage });
+  // Learning path: first encounter with a topic family opens with a
+  // mini-lesson (teaching screen) before the exercises.
+  const lesson = pickLessonForSession(exercises, {
+    seenKeys: getSeenLessons(child),
+    experiencedKeys: experiencedFamilies(readHistory()[child]),
+  });
+  if (lesson) markLessonSeen(child, lesson.key);
+
+  return res.json({ child, subject, date, exercises, weakness, track: profile.grade || null, stage: effectiveStage, lesson });
 });
 
 // ── Mistakes collection (תרגול טעויות) ─────────────────────────────────────
@@ -282,6 +381,24 @@ app.get('/api/rewards/:child', (req, res) => {
   const profile = getChild(req.params.child);
   if (!profile) return res.status(404).json({ error: 'Unknown child' });
   res.json({ child: profile.id, ...getRewards(profile.id) });
+});
+
+// ── Learning analysis for parents: topic mastery + recommendations ────────
+app.get('/api/insights/:child', (req, res) => {
+  const profile = getChild(req.params.child);
+  if (!profile) return res.status(404).json({ error: 'Unknown child' });
+  const sessions = readHistory()[profile.id] || [];
+  // Effective stage per subject (progress floor-ed by the parent-chosen level)
+  const stages = {};
+  for (const s of profile.subjects) {
+    const p = getProgress(profile.id, s);
+    stages[s] = s === 'english'
+      ? Math.max(p.stage, profile.englishLevel || 1)
+      : s === 'hebrew'
+        ? Math.max(p.stage, profile.hebrewLevel || 1)
+        : Math.max(p.stage, profile.mathStage || 1);
+  }
+  res.json({ child: profile.id, insights: computeInsights({ profile, sessions, stages }) });
 });
 
 app.get('/api/history/:child', (req, res) => {
@@ -481,10 +598,14 @@ async function sendEmailReport({ childName, date, results, practice }, child) {
     const finallyOk = r.correct;
     const bg = !hadMistake ? '#e8f5e9' : finallyOk ? '#fff3e0' : '#fce4ec';
     const status = !hadMistake ? '✅ ללא טעות' : finallyOk ? '⚠️ תוקן אחרי טעות' : '❌ לא נפתר';
+    // Comparison symbols are bidi-mirrored in an RTL email — isolate them LTR.
+    const answerHtml = /^[<>=]$/.test(String(r.answer))
+      ? `<span dir="ltr">${String(r.answer).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`
+      : r.answer;
     return `<tr style="background:${bg}">
       <td style="padding:6px 12px;border:1px solid #ddd">${r.id}</td>
       <td style="padding:6px 12px;border:1px solid #ddd" dir="${r.dir || 'rtl'}">${r.question.replace(/\n/g, '<br>')}</td>
-      <td style="padding:6px 12px;border:1px solid #ddd">${r.answer}</td>
+      <td style="padding:6px 12px;border:1px solid #ddd">${answerHtml}</td>
       <td style="padding:6px 12px;border:1px solid #ddd;text-align:center">${status}</td>
       <td style="padding:6px 12px;border:1px solid #ddd;text-align:center">${r.attempts}</td>
     </tr>`;

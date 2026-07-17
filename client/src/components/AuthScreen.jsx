@@ -1,6 +1,18 @@
-import { useState, useEffect } from 'react';
-import { authStatus, registerAccount, loginAccount } from '../api';
+import { useState, useEffect, useRef } from 'react';
+import { authStatus, registerAccount, loginAccount, googleLoginStart, googleLoginResult, IS_WEB } from '../api';
 import './AuthScreen.css';
+
+// Google "G" mark for the sign-in button.
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+    </svg>
+  );
+}
 
 export default function AuthScreen({ onAuthed }) {
   const [mode, setMode] = useState('login');      // 'login' | 'register'
@@ -9,11 +21,53 @@ export default function AuthScreen({ onAuthed }) {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [googleWaiting, setGoogleWaiting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const pollRef = useRef(null);
+
+  // Typing a password with the keyboard left in Hebrew produces Hebrew letters
+  // that look identical behind the dots — warn instead of failing silently.
+  const hebrewInPassword = /[֐-׿]/.test(password);
 
   // First run (no accounts yet) → start on the register form.
   useEffect(() => {
     authStatus().then(s => { if (!s.hasUsers) setMode('register'); }).catch(() => {});
   }, []);
+
+  // Stop polling if the screen unmounts.
+  useEffect(() => () => stopGooglePoll(), []);
+
+  function stopGooglePoll() {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    setGoogleWaiting(false);
+  }
+
+  // Open Google sign-in in the system browser, then wait for it to finish.
+  async function googleSignIn() {
+    setError(null);
+    try {
+      await googleLoginStart();
+    } catch (err) {
+      setError(err.message);
+      return;
+    }
+    setGoogleWaiting(true);
+    const startedAt = Date.now();
+    pollRef.current = setInterval(async () => {
+      if (Date.now() - startedAt > 3 * 60 * 1000) {  // give up after 3 minutes
+        stopGooglePoll();
+        setError('ההתחברות עם Google לא הושלמה — נסו שוב');
+        return;
+      }
+      try {
+        const r = await googleLoginResult();
+        if (r && r.ok) {
+          stopGooglePoll();
+          onAuthed({ token: r.token, email: r.user?.email || '', name: r.user?.name || '' });
+        }
+      } catch {}
+    }, 1500);
+  }
 
   const isRegister = mode === 'register';
 
@@ -72,21 +126,51 @@ export default function AuthScreen({ onAuthed }) {
 
         <label className="auth-field">
           <span>סיסמה</span>
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder={isRegister ? 'לפחות 6 תווים' : '••••••'}
-            dir="ltr"
-            autoComplete={isRegister ? 'new-password' : 'current-password'}
-          />
+          <div className="auth-pw-wrap">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder={isRegister ? 'לפחות 6 תווים' : '••••••'}
+              dir="ltr"
+              autoComplete={isRegister ? 'new-password' : 'current-password'}
+            />
+            <button
+              type="button"
+              className="auth-pw-eye"
+              onClick={() => setShowPassword(s => !s)}
+              title={showPassword ? 'הסתר סיסמה' : 'הצג סיסמה'}
+              aria-label={showPassword ? 'הסתר סיסמה' : 'הצג סיסמה'}
+            >{showPassword ? '🙈' : '👁️'}</button>
+          </div>
         </label>
+
+        {hebrewInPassword && (
+          <div className="auth-hint">⌨️ הסיסמה מכילה אותיות בעברית — אולי צריך להחליף שפה (Alt+Shift)</div>
+        )}
 
         {error && <div className="auth-error">{error}</div>}
 
-        <button type="submit" className="auth-submit" disabled={busy}>
+        <button type="submit" className="auth-submit" disabled={busy || googleWaiting}>
           {busy ? '…' : (isRegister ? '✨ צור חשבון' : '🔑 התחבר')}
         </button>
+
+        {!IS_WEB && (
+          <>
+            <div className="auth-divider"><span>או</span></div>
+            {googleWaiting ? (
+              <div className="auth-google-wait">
+                <div className="auth-google-spinner" />
+                ממתין לאישור בדפדפן…
+                <button type="button" className="auth-toggle" onClick={stopGooglePoll}>ביטול</button>
+              </div>
+            ) : (
+              <button type="button" className="auth-google" onClick={googleSignIn} disabled={busy}>
+                <GoogleIcon /> התחבר עם Google
+              </button>
+            )}
+          </>
+        )}
 
         <button
           type="button"
