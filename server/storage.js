@@ -59,6 +59,7 @@ function normalizeChild(c) {
     mathStage: sanitizeMathStage(c.mathStage),
     dailyPlan: sanitizeDailyPlan(c.dailyPlan),
     planUntil: sanitizePlanUntil(c.planUntil),
+    allowMulDiv: !!c.allowMulDiv,   // multiplication & division off until parent enables
   };
 }
 
@@ -107,7 +108,7 @@ export function getChild(id) {
 }
 
 /** Add a new child. `seq` makes the id unique without relying on Date.now(). */
-export function addChild({ name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, avatar, photo }) {
+export function addChild({ name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, avatar, photo }) {
   const list = readChildren();
   const base = 'kid';
   let n = 1;
@@ -126,6 +127,7 @@ export function addChild({ name, gender, subject, subjects, mathLevel, grade, en
     mathStage: sanitizeMathStage(mathStage),            // starting prep-track math stage 1-4
     dailyPlan: sanitizeDailyPlan(dailyPlan),            // e.g. {math: 20, english: 20}
     planUntil: sanitizePlanUntil(planUntil),            // last day of the daily plan
+    allowMulDiv: !!allowMulDiv,                         // show multiplication/division only when true
     avatar: avatar || '',
     photo: photo || '',
     builtin: false,
@@ -135,7 +137,7 @@ export function addChild({ name, gender, subject, subjects, mathLevel, grade, en
   return child;
 }
 
-export function updateChild(id, { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, avatar, photo }) {
+export function updateChild(id, { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, avatar, photo }) {
   const list = readChildren();
   const child = list.find(c => c.id === id);
   if (!child) return null;
@@ -155,6 +157,7 @@ export function updateChild(id, { name, gender, subject, subjects, mathLevel, gr
   if (mathStage !== undefined) child.mathStage = sanitizeMathStage(mathStage);
   if (dailyPlan !== undefined) child.dailyPlan = sanitizeDailyPlan(dailyPlan);
   if (planUntil !== undefined) child.planUntil = sanitizePlanUntil(planUntil);
+  if (allowMulDiv !== undefined) child.allowMulDiv = !!allowMulDiv;
   if (avatar !== undefined) child.avatar = avatar;
   if (photo !== undefined) child.photo = photo;
   writeChildren(list);

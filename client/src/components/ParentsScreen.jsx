@@ -221,6 +221,47 @@ function PlanEditor({ profile, onSaved }) {
   );
 }
 
+// Multiplication & division stay hidden until the child has actually learned
+// them. Only shown for the "עולה לכיתה ב׳" track, the one whose sessions can
+// contain mul/div. Off by default; toggling saves immediately.
+function MulDivToggle({ profile, onSaved }) {
+  const [on, setOn] = useState(!!profile?.allowMulDiv);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setOn(!!profile?.allowMulDiv); }, [profile?.id]);
+
+  if (!profile || profile.grade !== 'a_to_b') return null;
+
+  async function toggle() {
+    const next = !on;
+    setOn(next);                               // optimistic
+    setSaving(true);
+    try {
+      const { child } = await updateChild(profile.id, { allowMulDiv: next });
+      onSaved(child);
+    } catch (e) {
+      setOn(!next);                            // revert on failure
+      alert(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="section">
+      <h2>✖️ כפל וחילוק — {profile.name}</h2>
+      <label className={`muldiv-toggle ${on ? 'on' : ''}`}>
+        <input type="checkbox" checked={on} onChange={toggle} disabled={saving} />
+        <span className="muldiv-text">
+          {profile.name} כבר למד/ה כפל וחילוק — הצג תרגילי כפל וחילוק במפגשים
+        </span>
+      </label>
+      <div className="hint-text">
+        💡 כבוי כברירת מחדל. כשכבוי, תרגילי הכפל/חילוק מוחלפים בחיבור וחיסור דו-ספרתי שהילד/ה כבר יודע/ת.
+      </div>
+    </div>
+  );
+}
+
 // Exercises per day, last 14 days — the parent sees the practice rhythm at a
 // glance (research: consistency beats intensity for young learners).
 function ActivityChart({ history }) {
@@ -391,6 +432,11 @@ export default function ParentsScreen({ onBack }) {
           <ProgressSection profile={activeProfile} progress={stats.progress} />
 
           <PlanEditor
+            profile={activeProfile}
+            onSaved={(child) => setChildren(cs => cs.map(c => (c.id === child.id ? child : c)))}
+          />
+
+          <MulDivToggle
             profile={activeProfile}
             onSaved={(child) => setChildren(cs => cs.map(c => (c.id === child.id ? child : c)))}
           />

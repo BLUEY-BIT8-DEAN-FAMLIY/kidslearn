@@ -51,6 +51,7 @@ function normalizeChild(c) {
     mathStage: sanitizeMathStage(c.mathStage),
     dailyPlan: sanitizeDailyPlan(c.dailyPlan),
     planUntil: sanitizePlanUntil(c.planUntil),
+    allowMulDiv: !!c.allowMulDiv,   // multiplication & division off until parent enables
   };
 }
 
@@ -80,7 +81,7 @@ export async function fetchChildren() {
   return { children: readChildren().map(c => ({ ...c, todayPlan: getPlanStatus(c, today) })) };
 }
 
-export async function addChild({ name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, avatar, photo }) {
+export async function addChild({ name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, avatar, photo }) {
   const list = readChildren();
   let n = 1;
   while (list.some(c => c.id === `kid_${n}`)) n++;
@@ -98,6 +99,7 @@ export async function addChild({ name, gender, subject, subjects, mathLevel, gra
     mathStage: sanitizeMathStage(mathStage),
     dailyPlan: sanitizeDailyPlan(dailyPlan),
     planUntil: sanitizePlanUntil(planUntil),
+    allowMulDiv: !!allowMulDiv,
     avatar: avatar || '',
     photo: photo || '',
     builtin: false,
@@ -107,7 +109,7 @@ export async function addChild({ name, gender, subject, subjects, mathLevel, gra
   return { ok: true, child };
 }
 
-export async function updateChild(id, { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, avatar, photo }) {
+export async function updateChild(id, { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, avatar, photo }) {
   const list = readChildren();
   const child = list.find(c => c.id === id);
   if (!child) throw new Error('הילד לא נמצא');
@@ -127,6 +129,7 @@ export async function updateChild(id, { name, gender, subject, subjects, mathLev
   if (mathStage !== undefined) child.mathStage = sanitizeMathStage(mathStage);
   if (dailyPlan !== undefined) child.dailyPlan = sanitizeDailyPlan(dailyPlan);
   if (planUntil !== undefined) child.planUntil = sanitizePlanUntil(planUntil);
+  if (allowMulDiv !== undefined) child.allowMulDiv = !!allowMulDiv;
   if (avatar !== undefined) child.avatar = avatar;
   if (photo !== undefined) child.photo = photo;
   write(K.children, list);
@@ -368,7 +371,7 @@ export async function fetchExercises(child, date, subject, operation = 'mix') {
     : chosen === 'hebrew'
       ? generateHebrewExercises(weakness, reviewExercises, effectiveStage, profile.grade)
       : profile.grade
-        ? generatePrepMath(profile.grade, effectiveStage, reviewExercises, operation)
+        ? generatePrepMath(profile.grade, effectiveStage, reviewExercises, operation, profile.allowMulDiv)
         : generateMathExercises(weakness, reviewExercises, profile.mathLevel, operation);
 
   // Daily summer plan: size the session to what's left of today's quota.

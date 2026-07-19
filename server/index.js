@@ -266,7 +266,7 @@ app.get('/api/exercises/:child', (req, res) => {
     : subject === 'hebrew'
       ? generateHebrewExercises(weakness, reviewExercises, effectiveStage, profile.grade)
       : profile.grade
-        ? generatePrepMath(profile.grade, effectiveStage, reviewExercises, op)
+        ? generatePrepMath(profile.grade, effectiveStage, reviewExercises, op, profile.allowMulDiv)
         : generateMathExercises(weakness, reviewExercises, profile.mathLevel, op);
 
   // Daily summer plan: size the session to exactly what's left of today's
@@ -315,19 +315,19 @@ app.get('/api/children', (req, res) => {
 });
 
 app.post('/api/children', (req, res) => {
-  const { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, avatar, photo } = req.body || {};
+  const { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, avatar, photo } = req.body || {};
   if (!name || !String(name).trim()) return res.status(400).json({ error: 'חסר שם' });
   // Reject oversized photos (defensive – client already downscales)
   if (photo && photo.length > 6_000_000) return res.status(413).json({ error: 'התמונה גדולה מדי' });
-  const child = addChild({ name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, avatar, photo });
+  const child = addChild({ name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, avatar, photo });
   res.json({ ok: true, child });
 });
 
 app.put('/api/children/:id', (req, res) => {
-  const { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, avatar, photo } = req.body || {};
+  const { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, avatar, photo } = req.body || {};
   if (name !== undefined && !String(name).trim()) return res.status(400).json({ error: 'חסר שם' });
   if (photo && photo.length > 6_000_000) return res.status(413).json({ error: 'התמונה גדולה מדי' });
-  const child = updateChild(req.params.id, { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, avatar, photo });
+  const child = updateChild(req.params.id, { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, avatar, photo });
   if (!child) return res.status(404).json({ error: 'הילד לא נמצא' });
   res.json({ ok: true, child });
 });

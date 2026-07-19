@@ -1392,11 +1392,21 @@ const PREP_PLANS = {
  * consecutive days. Falls back to the closest existing stage when out of
  * range so stale data can never crash a session.
  */
-export function generatePrepMath(track, stage, reviewExercises = [], operation = 'mix') {
+export function generatePrepMath(track, stage, reviewExercises = [], operation = 'mix', allowMulDiv = false) {
   const stages = PREP_PLANS[track] || PREP_PLANS.a_to_b;
   const idx = Math.min(Math.max(1, Number(stage) || 1), stages.length) - 1;
   const op = MATH_OPERATIONS.includes(operation) ? operation : 'mix';
-  const plan = stages[idx](op);
+  let plan = stages[idx](op);
+  // Multiplication & division (and the "repeated addition → times tables"
+  // primer) stay hidden until the parent flips the "already learned mul/div"
+  // switch. Their slots become two-digit add/sub the child can already do, so
+  // the session keeps its full length.
+  if (!allowMulDiv) {
+    const sub = () => (op === 'add' ? makeTwoDigitAdd()
+      : op === 'sub' ? makeTwoDigitSub()
+      : pick([makeTwoDigitAdd, makeTwoDigitSub])());
+    plan = plan.map(g => (g === makeMulDiv || g === makeRepeatedAdd) ? sub : g);
+  }
   const reviewCount = Math.min(reviewExercises.length, 3);
   // Give up leading plan slots to make room for resurfaced review questions.
   for (let i = 0; i < reviewCount && plan.length; i++) plan.shift();
