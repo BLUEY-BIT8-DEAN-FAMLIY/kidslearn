@@ -1,0 +1,11 @@
+{
+  "appId": "com.kidslearn.app",
+  "appName": "KidsLearn",
+  "webDir": "dist-app",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

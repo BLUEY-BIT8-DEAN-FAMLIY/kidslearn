@@ -661,16 +661,34 @@ export const ENGLISH_STAGES = 6;
 // though the stage ladder (and the typing/sentence question mix) goes to 6.
 const MAX_WORD_BAND = 4;
 
+// Alphabet-teaching types — hidden by the parents' "ABC" toggle. English then
+// stays fully active, taught through pictures and audio only (words, sounds,
+// rhymes, listening) — same swap pattern as the mul/div toggle in math.
+export const ABC_TYPES = [
+  'en_letter_name', 'en_letter_find', 'en_next_letter', 'en_upper_lower',
+  'en_first_letter', 'en_last_letter',
+];
+const NO_ABC_SWAPS = [
+  'en_word_to_pic', 'en_listen_pick', 'en_rhyme', 'en_count',
+  'en_color', 'en_verb', 'en_odd_one_out',
+];
+
 /**
  * `track` makes the same stage age-appropriate: an a_to_b child (rising 2nd
  * grader) draws vocabulary one band higher and gets long words, while the
  * younger track prefers short words at the same stage.
+ * `hideLetters` (parent toggle) swaps alphabet questions for picture/audio
+ * vocabulary — the session keeps its full length.
  */
-export function generateEnglishExercises(stage = 1, reviewExercises = [], track = null) {
+export function generateEnglishExercises(stage = 1, reviewExercises = [], track = null, hideLetters = false) {
   const s = Math.min(Math.max(1, Number(stage) || 1), ENGLISH_STAGES);
   const hard = track === 'a_to_b';
   const band = Math.min(s + (hard ? 1 : 0), MAX_WORD_BAND);
-  const plan = [...STAGE_PLANS[s]];
+  let plan = [...STAGE_PLANS[s]];
+  if (hideLetters) {
+    let i = 0;
+    plan = plan.map(t => (ABC_TYPES.includes(t) ? NO_ABC_SWAPS[i++ % NO_ABC_SWAPS.length] : t));
+  }
   const reviewCount = Math.min(reviewExercises.length, 3);
   for (let i = 0; i < reviewCount && plan.length; i++) plan.shift();
 

@@ -148,3 +148,87 @@
   border: 2px solid rgba(255,255,255,0.3);
 }
 .op-back:hover { background: rgba(255,255,255,0.3); }
+
+/* Sub-topic tiles (שעון, שקלים, צורות...) below the main three */
+.topic-title {
+  color: #fff7e6;
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  margin-top: 4px;
+}
+.topic-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 640px;
+}
+.topic-btn {
+  width: 108px;
+  min-height: 92px;
+  background: rgba(255,255,255,0.94);
+  border-radius: 18px;
+  border: 3px solid transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+.topic-btn:hover {
+  transform: translateY(-4px);
+  border-color: #ffce54;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.26);
+}
+.topic-icon { font-size: 2rem; line-height: 1; }
+.topic-text { font-size: 0.92rem; font-weight: 700; color: #333; }
+
+/* Workbook-or-drill chooser (opens when a topic tile is clicked) */
+.book-choice-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 20, 60, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.book-choice {
+  background: #fff;
+  border-radius: 24px;
+  padding: 26px 26px 20px;
+  width: min(420px, 92vw);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  text-align: center;
+}
+.book-choice-icon { font-size: 2.6rem; line-height: 1; }
+.book-choice-title { margin: 0; color: #333; font-size: 1.4rem; }
+.book-choice-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 16px;
+  padding: 14px 16px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  border: 3px solid transparent;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.book-choice-btn small { font-size: 0.85rem; font-weight: 600; opacity: 0.75; }
+.book-choice-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+.book-choice-btn.learn { background: linear-gradient(135deg, #fff8e1, #ffecb3); border-color: #ffce54; color: #7a5c00; }
+.book-choice-btn.drill { background: linear-gradient(135deg, #e8eaff, #f6f7ff); border-color: #5c6bc0; color: #3949ab; }
+.book-choice-cancel {
+  background: none;
+  color: #888;
+  font-size: 0.95rem;
+  padding: 6px;
+}
+.book-choice-cancel:hover { color: #555; }

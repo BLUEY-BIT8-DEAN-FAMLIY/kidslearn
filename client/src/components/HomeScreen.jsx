@@ -16,9 +16,11 @@ const GRADE_TAGS = {
 };
 
 function subjectsOf(child) {
-  return Array.isArray(child.subjects) && child.subjects.length
+  const subs = Array.isArray(child.subjects) && child.subjects.length
     ? child.subjects
     : [child.subject || 'math'];
+  // A paused subject (e.g. English until school starts) is hidden everywhere.
+  return subs.filter(s => !(s === 'english' && child.hideEnglish));
 }
 
 export default function HomeScreen({ onSelect, onMistakes, onParents }) {

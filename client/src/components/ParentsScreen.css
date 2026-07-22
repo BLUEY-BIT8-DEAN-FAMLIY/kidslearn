@@ -337,3 +337,22 @@
 .muldiv-toggle.on { background: #eafbea; border-color: #43a047; }
 .muldiv-toggle input { width: 22px; height: 22px; flex-shrink: 0; cursor: pointer; accent-color: #43a047; }
 .muldiv-text { font-size: 0.98rem; font-weight: 600; color: #333; }
+
+/* Magic Box — the parents' gift */
+.magic-box { background: linear-gradient(135deg, #fff8e1, #fff3e0); border: 2px solid #ffd54f; }
+.magic-closed, .magic-surprise { text-align: center; padding: 8px 0; }
+.magic-icon { font-size: 3.4rem; line-height: 1.2; animation: magic-bounce 1.6s ease infinite; }
+@keyframes magic-bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.magic-surprise .magic-icon { animation: none; }
+.magic-surprise h3 { color: #e65100; margin: 8px 0 4px; font-size: 1.25rem; }
+.magic-surprise p { color: #5d4037; margin: 4px 0; font-size: 1.02rem; }
+.magic-awarded { font-weight: 700; color: #2e7d32 !important; }
+.magic-open-btn {
+  background: linear-gradient(135deg, #ffb300, #f57c00);
+  color: #fff; border: none; border-radius: 14px;
+  padding: 12px 32px; font-size: 1.1rem; font-weight: 800;
+  font-family: inherit; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(245,124,0,0.4);
+  transition: transform 0.15s; margin-top: 6px;
+}
+.magic-open-btn:hover { transform: scale(1.06); }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import AnalogClock from './AnalogClock';
 import HebrewKeyboard from './HebrewKeyboard';
 import { speakHebrew, speakEnglish, speakParts } from '../lib/tts';
 import './ExerciseCard.css';
@@ -144,7 +145,7 @@ function isComparisonSymbol(opt) {
 // Hebrew exercise types that need typing input (-> show virtual keyboard)
 const HEBREW_TYPING_TYPES = ['type_letter', 'fill_letter', 'first_letter_of_word'];
 
-export default function ExerciseCard({ exercise: ex, child, subject, onAnswer, feedback, showHint, attempts, maxAttempts }) {
+export default function ExerciseCard({ exercise: ex, child, subject, onAnswer, onTeach, feedback, showHint, attempts, maxAttempts }) {
   const [input, setInput] = useState('');
   const [selected, setSelected] = useState(null);
 
@@ -221,7 +222,13 @@ export default function ExerciseCard({ exercise: ex, child, subject, onAnswer, f
     <div className={cardClass}>
       <div className="ex-type-label">{TYPE_LABELS[ex.type] || ex.type}</div>
 
-      {ex.displayShape && (
+      {/* Real analog clock (numbers + hands); emoji stays a legacy fallback */}
+      {ex.displayClock && (
+        <div className="big-clock">
+          <AnalogClock h={ex.displayClock.h} m={ex.displayClock.m} size={170} />
+        </div>
+      )}
+      {ex.displayShape && !ex.displayClock && (
         <div className={`big-shape ${ex.displayShape.length > 10 ? 'long' : ''}`}>
           {ex.displayShape}
         </div>
@@ -248,17 +255,26 @@ export default function ExerciseCard({ exercise: ex, child, subject, onAnswer, f
         <div className="options-grid">
           {ex.options.map(opt => {
             const optImg = ex.optionImages && ex.optionImages[opt];
-            const emojiOnly = !optImg && isEmojiOption(opt);
+            // "Which clock shows X?" — each option is DRAWN as a clock. The
+            // label is intentionally hidden (it would give the answer away).
+            const optClock = ex.optionClocks && ex.optionClocks[opt];
+            const emojiOnly = !optImg && !optClock && isEmojiOption(opt);
             const symbol = isComparisonSymbol(opt);
             return (
               <button
                 key={opt}
-                className={`option-btn ${optImg ? 'with-image' : ''} ${emojiOnly ? 'emoji-only' : ''} ${symbol ? 'symbol-opt' : ''} ${selected === opt ? (feedback === 'correct' ? 'correct' : 'wrong') : ''}`}
+                className={`option-btn ${optImg ? 'with-image' : ''} ${optClock ? 'with-clock' : ''} ${emojiOnly ? 'emoji-only' : ''} ${symbol ? 'symbol-opt' : ''} ${selected === opt ? (feedback === 'correct' ? 'correct' : 'wrong') : ''}`}
                 onClick={() => submitOption(opt)}
                 disabled={!!feedback}
               >
-                {optImg && <span className="opt-img">{optImg}</span>}
-                <span className="opt-text" dir={symbol ? 'ltr' : undefined}>{opt}</span>
+                {optClock ? (
+                  <AnalogClock h={optClock.h} m={optClock.m} size={104} />
+                ) : (
+                  <>
+                    {optImg && <span className="opt-img">{optImg}</span>}
+                    <span className="opt-text" dir={symbol ? 'ltr' : undefined}>{opt}</span>
+                  </>
+                )}
               </button>
             );
           })}
@@ -343,7 +359,19 @@ export default function ExerciseCard({ exercise: ex, child, subject, onAnswer, f
       {feedback === 'correct' && <div className="feedback-banner correct">🎉 כל הכבוד! תשובה נכונה!</div>}
       {feedback === 'wrong' && <div className="feedback-banner wrong">❌ נסה שוב! ({maxAttempts - attempts} ניסיונות נשארו)</div>}
 
-      {showHint && !feedback && <div className="hint-box">💡 רמז: {ex.hint}</div>}
+      {/* Guided workbook questions show their hint from the start (תרגול מודרך) */}
+      {(showHint || (ex.guided && ex.hint)) && !feedback && (
+        <div className="hint-box">
+          {ex.guided ? '🧭 מודרך — ' : ''}💡 רמז: {ex.hint}
+        </div>
+      )}
+
+      {/* Struggling? Open the topic's mini-lesson and re-learn the method. */}
+      {onTeach && attempts >= 2 && !feedback && (
+        <button type="button" className="teach-btn" onClick={onTeach}>
+          🎓 למד אותי איך פותרים
+        </button>
+      )}
     </div>
   );
 }

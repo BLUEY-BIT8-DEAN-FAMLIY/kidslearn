@@ -312,3 +312,34 @@ button.letter-grid-btn:hover:not(:disabled) {
   text-align: center;
   width: 100%;
 }
+
+/* Analog clock (real numbers + hands) */
+.big-clock {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0;
+}
+.option-btn.with-clock {
+  padding: 10px;
+}
+.option-btn.with-clock .analog-clock {
+  display: block;
+}
+
+/* "Teach me" — opens the topic mini-lesson mid-exercise */
+.teach-btn {
+  margin-top: 10px;
+  background: linear-gradient(135deg, #e8eaff, #f6f7ff);
+  border: 2px solid #5c6bc0;
+  color: #3949ab;
+  border-radius: 14px;
+  padding: 12px 22px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.teach-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(92, 107, 192, 0.3);
+}

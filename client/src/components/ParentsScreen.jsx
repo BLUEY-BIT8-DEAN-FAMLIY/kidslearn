@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchStats, fetchHistory, fetchChildren, fetchInsights, updateChild, IS_WEB } from '../api';
+import { fetchStats, fetchHistory, fetchChildren, fetchInsights, updateChild, fetchMagicBox, openMagicBox, IS_WEB } from '../api';
 import { PREP_TRACKS, stageName, STREAK_TO_ADVANCE, HEBREW_STAGES, ENGLISH_STAGES } from '../../../server/exercises/curriculum.js';
 import EmailSettings from './EmailSettings';
 import BgRemovalSettings from './BgRemovalSettings';
@@ -77,6 +77,62 @@ const TYPE_LABELS = {
 };
 
 const PLAN_SUBJECT_NAMES = { math: '➕ חשבון', hebrew: '🔤 עברית', english: '🇬🇧 אנגלית' };
+
+// 🎁 The parents' gift for connecting KidsLearn to Tavixo: one free surprise
+// a day — bonus stickers for the kids, family coupons, riddles and more.
+function MagicBoxSection() {
+  const [box, setBox] = useState(null);
+  const [surprise, setSurprise] = useState(null);
+  const [opening, setOpening] = useState(false);
+
+  useEffect(() => {
+    fetchMagicBox().then(b => {
+      setBox(b);
+      if (b.openedToday) setSurprise(b.openedToday);
+    }).catch(() => setBox({ unlocked: false }));
+  }, []);
+
+  if (!box || !box.unlocked) return null;
+
+  async function open() {
+    setOpening(true);
+    try {
+      const r = await openMagicBox();
+      setSurprise(r.surprise);
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  return (
+    <div className="section magic-box">
+      <h2>🎁 קופסת הקסמים</h2>
+      {!surprise ? (
+        <div className="magic-closed">
+          <div className="magic-icon">🎁</div>
+          <p>ההפתעה היומית שלכם מחכה בפנים — בחינם, כי חיברתם את KidsLearn ל-Tavixo!</p>
+          <button className="magic-open-btn" onClick={open} disabled={opening}>
+            {opening ? '...' : '✨ פתחו את הקופסה'}
+          </button>
+        </div>
+      ) : (
+        <div className="magic-surprise">
+          <div className="magic-icon">{surprise.icon}</div>
+          <h3>{surprise.title}</h3>
+          <p>{surprise.text}</p>
+          {surprise.awarded && (
+            <p className="magic-awarded">
+              {surprise.awarded.map(a => `${a.name} קיבל/ה ${a.emoji}`).join(' · ')} — כבר באלבום!
+            </p>
+          )}
+          <div className="hint-text">🗓️ הפתעה חדשה מחכה כאן כל יום.</div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const REC_STYLE = {
   strengthen:  { icon: '🎯', color: '#e65100', bg: '#fff3e0' },
@@ -224,6 +280,52 @@ function PlanEditor({ profile, onSaved }) {
 // Multiplication & division stay hidden until the child has actually learned
 // them. Only shown for the "עולה לכיתה ב׳" track, the one whose sessions can
 // contain mul/div. Off by default; toggling saves immediately.
+// The ABC (alphabet-letter) drills inside English can be hidden until school
+// starts — same pattern as the mul/div switch in math. English itself STAYS:
+// the letter questions are swapped for picture/audio vocabulary (words,
+// listening, rhymes), so the session keeps its full length.
+function EnglishToggle({ profile, onSaved }) {
+  const learnsEnglish = Array.isArray(profile?.subjects) && profile.subjects.includes('english');
+  const [on, setOn] = useState(!profile?.hideEnglishLetters);   // on = ABC shown
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setOn(!profile?.hideEnglishLetters); }, [profile?.id, profile?.hideEnglishLetters]);
+
+  if (!profile || !learnsEnglish) return null;
+
+  async function toggle() {
+    const next = !on;
+    setOn(next);                               // optimistic
+    setSaving(true);
+    try {
+      const { child } = await updateChild(profile.id, { hideEnglishLetters: !next });
+      onSaved(child);
+    } catch (e) {
+      setOn(!next);                            // revert on failure
+      alert(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="section">
+      <h2>🔤 אותיות ABC באנגלית — {profile.name}</h2>
+      <label className={`muldiv-toggle ${on ? 'on' : ''}`}>
+        <input type="checkbox" checked={on} onChange={toggle} disabled={saving} />
+        <span className="muldiv-text">
+          {on
+            ? `${profile.name} לומד/ת את אותיות ה-ABC — תרגילי אותיות מופיעים במפגשי האנגלית`
+            : `אותיות ה-ABC מוסתרות — האנגלית ממשיכה דרך שמיעה ותמונות בלבד (מילים, צלילים, חרוזים)`}
+        </span>
+      </label>
+      <div className="hint-text">
+        💡 האנגלית עצמה נשארת! כמו מתג הכפל והחילוק — תרגילי האותיות מוחלפים
+        בתרגילי מילים באודיו ותמונות, והמפגש נשאר באותו אורך. מפעילים שוב כשמתחילה כיתה א׳.
+      </div>
+    </div>
+  );
+}
+
 function MulDivToggle({ profile, onSaved }) {
   const [on, setOn] = useState(!!profile?.allowMulDiv);
   const [saving, setSaving] = useState(false);
@@ -427,11 +529,18 @@ export default function ParentsScreen({ onBack }) {
             </div>
           )}
 
+          <MagicBoxSection />
+
           <InsightsSection child={activeChild} childName={childName} />
 
           <ProgressSection profile={activeProfile} progress={stats.progress} />
 
           <PlanEditor
+            profile={activeProfile}
+            onSaved={(child) => setChildren(cs => cs.map(c => (c.id === child.id ? child : c)))}
+          />
+
+          <EnglishToggle
             profile={activeProfile}
             onSaved={(child) => setChildren(cs => cs.map(c => (c.id === child.id ? child : c)))}
           />

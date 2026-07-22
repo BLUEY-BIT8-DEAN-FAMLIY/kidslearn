@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
-import { fetchExercises, fetchMistakes, saveSession } from '../api';
+import { fetchExercises, fetchMistakes, fetchChildren, saveSession } from '../api';
+import { MATH_TOPICS, topicsForChild } from '../../../server/exercises/mathGenerator.js';
 import { speakCelebration, speakEncouragement, speakEnglish } from '../lib/tts';
 import { playCorrect, playWrong } from '../lib/sfx';
 import ExerciseCard from './ExerciseCard';
 import ResultScreen from './ResultScreen';
 import LessonCard from './LessonCard';
+import WorkbookPage from './WorkbookPage';
+import { LESSONS, familyKeyForType } from '../../../server/exercises/lessons.js';
 import './ExerciseSession.css';
 
 const MAX_ATTEMPTS = 10;
-const PRACTICE_SESSION_SIZE = 12;
+// "תרגל הכל" really runs ALL the collected mistakes (sanity-capped only).
+const PRACTICE_SESSION_MAX = 50;
 
 function shuffleList(arr) {
   const a = [...arr];
@@ -36,7 +40,10 @@ const OPERATIONS = [
   { id: 'mix', icon: '🔀', label: 'מעורב', cls: 'op-mix' },
 ];
 
-function OperationPicker({ childName, onPick, onBack }) {
+function OperationPicker({ childName, topics, onPick, onBack }) {
+  // Clicking a topic asks: learn it with the interactive workbook, or drill?
+  const [pendingTopic, setPendingTopic] = useState(null);
+
   return (
     <div className="op-picker">
       <h2 className="op-picker-title">{childName}, במה נתחיל היום?</h2>
@@ -48,7 +55,40 @@ function OperationPicker({ childName, onPick, onBack }) {
           </button>
         ))}
       </div>
+
+      {topics.length > 0 && (
+        <>
+          <div className="topic-title">✨ או בוחרים נושא — לומדים או מתרגלים:</div>
+          <div className="topic-row">
+            {topics.map(t => (
+              <button key={t.id} className="topic-btn" onClick={() => setPendingTopic(t)}>
+                <span className="topic-icon">{t.icon}</span>
+                <span className="topic-text">{t.label}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
       <button className="op-back" onClick={onBack}>חזרה</button>
+
+      {pendingTopic && (
+        <div className="book-choice-overlay" onClick={() => setPendingTopic(null)}>
+          <div className="book-choice" onClick={e => e.stopPropagation()}>
+            <div className="book-choice-icon">{pendingTopic.icon}</div>
+            <h3 className="book-choice-title">{pendingTopic.label}</h3>
+            <button className="book-choice-btn learn" onClick={() => onPick(`book:${pendingTopic.id}`)}>
+              <span>📖 חוברת אינטראקטיבית</span>
+              <small>לומדים צעד-צעד, פותרים יחד, ואז מתרגלים</small>
+            </button>
+            <button className="book-choice-btn drill" onClick={() => onPick(`topic:${pendingTopic.id}`)}>
+              <span>✏️ תרגול מהיר</span>
+              <small>ישר לתרגילים</small>
+            </button>
+            <button className="book-choice-cancel" onClick={() => setPendingTopic(null)}>ביטול</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -62,6 +102,7 @@ export default function ExerciseSession({ child, childName, subject, practice, p
   // Math sessions first ask which operation to focus on; Hebrew/English and
   // mistake-practice sessions skip this.
   const [operation, setOperation] = useState(null);
+  const [topics, setTopics] = useState([]);       // sub-topic tiles for the picker
   const [exercises, setExercises] = useState([]);
   const [current, setCurrent] = useState(0);
   const [results, setResults] = useState([]);
@@ -72,6 +113,9 @@ export default function ExerciseSession({ child, childName, subject, practice, p
   const [planStatus, setPlanStatus] = useState(null); // daily summer-plan status
   const [sticker, setSticker] = useState(null);       // today's earned sticker
   const [lesson, setLesson] = useState(null);         // mini-lesson before a new topic
+  const [helpLesson, setHelpLesson] = useState(null); // on-demand "teach me" lesson
+  const [workbook, setWorkbook] = useState(null);     // interactive workbook (teaching pages)
+  const [bookPage, setBookPage] = useState(0);        // current workbook page
   const [attempts, setAttempts] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
   const [showHint, setShowHint] = useState(false);
@@ -79,8 +123,23 @@ export default function ExerciseSession({ child, childName, subject, practice, p
 
   const date = new Date().toISOString().slice(0, 10);
 
+  // The picker offers every sub-topic of the child's curriculum (שעון, שקלים...).
+  useEffect(() => {
+    if (!isMath || practice) return;
+    fetchChildren()
+      .then(data => {
+        const p = (data.children || []).find(c => c.id === child);
+        if (!p) return;
+        const ids = topicsForChild({ track: p.grade, level: p.mathLevel, allowMulDiv: p.allowMulDiv });
+        setTopics(ids.filter(id => MATH_TOPICS[id]).map(id => ({ id, ...MATH_TOPICS[id] })));
+      })
+      .catch(() => {});
+  }, [child, isMath, practice]);
+
   useEffect(() => {
     // Mistake practice: replay the child's own failed exercises, on demand.
+    // "תרגל הכל" runs the WHOLE list (not a random slice), and the session
+    // opens by re-teaching the topic the child struggles with most.
     if (practice) {
       setLoading(true);
       fetchMistakes(child)
@@ -88,9 +147,17 @@ export default function ExerciseSession({ child, childName, subject, practice, p
           let list = (data.mistakes?.[subject] || []).map(m => m.exercise);
           if (practiceType) list = list.filter(e => e.type === practiceType);
           const session = shuffleList(list)
-            .slice(0, PRACTICE_SESSION_SIZE)
+            .slice(0, PRACTICE_SESSION_MAX)
             .map((ex, i) => ({ ...ex, id: i + 1, isReview: false }));
           setExercises(session);
+          // Teach before drilling: the lesson of the most-mistaken family.
+          const famCount = {};
+          for (const ex of session) {
+            const fam = familyKeyForType(ex.type);
+            if (fam && LESSONS[fam]) famCount[fam] = (famCount[fam] || 0) + 1;
+          }
+          const top = Object.entries(famCount).sort((a, b) => b[1] - a[1])[0];
+          setLesson(top ? { key: top[0], ...LESSONS[top[0]], practice: true } : null);
           setLoading(false);
         })
         .catch(err => { setError(err.message); setLoading(false); });
@@ -100,7 +167,13 @@ export default function ExerciseSession({ child, childName, subject, practice, p
     if (isMath && !operation) return;
     setLoading(true);
     fetchExercises(child, date, subject, operation || undefined)
-      .then(data => { setExercises(data.exercises); setLesson(data.lesson || null); setLoading(false); })
+      .then(data => {
+        setExercises(data.exercises);
+        setLesson(data.lesson || null);
+        setWorkbook(data.workbook || null);
+        setBookPage(0);
+        setLoading(false);
+      })
       .catch(err => { setError(err.message); setLoading(false); });
   }, [child, date, subject, operation, isMath, practice, practiceType]);
 
@@ -192,9 +265,9 @@ export default function ExerciseSession({ child, childName, subject, practice, p
     if (res?.sticker) setSticker(res.sticker);
   }
 
-  // Math: ask which operation to practise before anything loads.
+  // Math: ask which operation/topic to practise before anything loads.
   if (isMath && !practice && !operation) {
-    return <OperationPicker childName={childName} onPick={setOperation} onBack={onBack} />;
+    return <OperationPicker childName={childName} topics={topics} onPick={setOperation} onBack={onBack} />;
   }
 
   if (loading) return (
@@ -211,9 +284,26 @@ export default function ExerciseSession({ child, childName, subject, practice, p
     </div>
   );
 
+  // Interactive workbook: teaching pages + worked example, then the practice.
+  if (workbook && bookPage < (workbook.pages || []).length) return (
+    <WorkbookPage
+      workbook={workbook}
+      page={workbook.pages[bookPage]}
+      pageIndex={bookPage}
+      total={workbook.pages.length}
+      childName={childName}
+      onNext={() => setBookPage(p => p + 1)}
+    />
+  );
+
   // A new topic opens with its mini-lesson (learning before practising).
   if (lesson) return (
     <LessonCard lesson={lesson} childName={childName} onStart={() => setLesson(null)} />
+  );
+
+  // Mid-exercise "teach me" — re-learn the method, then return to the question.
+  if (helpLesson) return (
+    <LessonCard lesson={helpLesson} childName={childName} onStart={() => setHelpLesson(null)} />
   );
 
   // Nothing left to practise – every mistake was already conquered.
@@ -237,6 +327,11 @@ export default function ExerciseSession({ child, childName, subject, practice, p
   );
 
   const ex = exercises[current];
+  // The current exercise's topic lesson (for the mid-exercise "teach me" button).
+  const exFamily = ex ? familyKeyForType(ex.type) : null;
+  const teachable = exFamily && LESSONS[exFamily]
+    ? { key: exFamily, ...LESSONS[exFamily], help: true }
+    : null;
 
   return (
     <div className="session">
@@ -263,6 +358,7 @@ export default function ExerciseSession({ child, childName, subject, practice, p
         child={child}
         subject={subject}
         onAnswer={handleAnswer}
+        onTeach={teachable ? () => setHelpLesson(teachable) : undefined}
         feedback={feedback}
         showHint={showHint}
         attempts={attempts}

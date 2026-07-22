@@ -146,6 +146,103 @@ export function deviceLogin() {
   return { ok: true, token, user: publicUser(user) };
 }
 
+// ── "Sign in with KidsLearn" for the family's OTHER apps (Tavixo, …) ───────
+// A local single-sign-on: another app on this machine asks KidsLearn "who is
+// the signed-in family?" and gets the identity of the device-trusted account,
+// plus an app-scoped token it can re-verify on every launch. No passwords
+// ever leave KidsLearn.
+
+export function ssoAuthorize(appName) {
+  const app = String(appName || '').trim().slice(0, 40);
+  if (!app) return null;
+  let email;
+  try { email = normEmail(JSON.parse(fs.readFileSync(DEVICE_FILE, 'utf8')).email); } catch { return null; }
+  const users = readUsers();
+  const user = users.find(u => u.email === email);
+  if (!user) return null;
+  const token = newToken();
+  const others = (user.ssoTokens || []).filter(t => t.app !== app).slice(-15);
+  const mine = (user.ssoTokens || []).filter(t => t.app === app).slice(-4);   // keep a few per app
+  user.ssoTokens = [...others, ...mine, { app, token, createdAt: new Date().toISOString() }];
+  writeUsers(users);
+  return { ok: true, app, token, user: publicUser(user) };
+}
+
+export function ssoVerify(token) {
+  if (!token) return null;
+  for (const u of readUsers()) {
+    const rec = (u.ssoTokens || []).find(t => t.token === token);
+    if (rec) return { ok: true, app: rec.app, user: publicUser(u) };
+  }
+  return null;
+}
+
+/** The device-trusted account's email (or null) — for the authorize page. */
+export function deviceEmail() {
+  try { return normEmail(JSON.parse(fs.readFileSync(DEVICE_FILE, 'utf8')).email); } catch { return null; }
+}
+
+// ── One-time connection codes (device-code style flow) ─────────────────────
+// The KidsLearn authorization page issues a short single-use code AFTER the
+// parent gate; the other app exchanges it for an identity + sso token. Codes
+// live 10 minutes, are single-use, and are stored next to the rest of the data
+// so an app restart doesn't void a code the parent just wrote down.
+const SSO_CODES_FILE = path.join(DATA_DIR, 'sso-codes.json');
+const CODE_TTL_MS = 10 * 60 * 1000;
+
+function readCodes() {
+  try {
+    const list = JSON.parse(fs.readFileSync(SSO_CODES_FILE, 'utf8'));
+    return (Array.isArray(list) ? list : []).filter(c => c.exp > Date.now() && !c.used);
+  } catch { return []; }
+}
+
+function writeCodes(list) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(SSO_CODES_FILE, JSON.stringify(list, null, 2));
+  } catch {}
+}
+
+/** All family accounts — for the "who is connecting?" picker. */
+export function listAccounts() {
+  return readUsers().map(publicUser);
+}
+
+export function createSsoCode(appName, accountEmail = null) {
+  const app = String(appName || '').trim().slice(0, 40);
+  if (!app) return null;
+  // The parent may pick WHICH family member connects (e.g. דין with his own
+  // account) — defaults to the device-trusted account.
+  const email = accountEmail ? normEmail(accountEmail) : deviceEmail();
+  if (!email || !readUsers().some(u => u.email === email)) return null;
+  // Readable and unambiguous: no 0/O or 1/I lookalikes.
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (const b of crypto.randomBytes(6)) code += alphabet[b % alphabet.length];
+  writeCodes([...readCodes(), { code, app, email, exp: Date.now() + CODE_TTL_MS, used: false }]);
+  return { code, app };
+}
+
+export function exchangeSsoCode(rawCode, appName) {
+  const code = String(rawCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const app = String(appName || '').trim().slice(0, 40);
+  if (!code) return null;
+  const list = readCodes();
+  const rec = list.find(c => c.code === code && (!app || c.app === app));
+  if (!rec) return null;
+  writeCodes(list.filter(c => c !== rec));   // single-use: gone the moment it's claimed
+  const users = readUsers();
+  const user = users.find(u => u.email === rec.email);
+  if (!user) return null;
+  const token = newToken();
+  const others = (user.ssoTokens || []).filter(t => t.app !== rec.app).slice(-15);
+  const mine = (user.ssoTokens || []).filter(t => t.app === rec.app).slice(-4);
+  user.ssoTokens = [...others, ...mine, { app: rec.app, token, createdAt: new Date().toISOString() }];
+  writeUsers(users);
+  return { ok: true, app: rec.app, token, user: publicUser(user) };
+}
+
 export function logoutToken(token) {
   if (!token) return;
   const users = readUsers();

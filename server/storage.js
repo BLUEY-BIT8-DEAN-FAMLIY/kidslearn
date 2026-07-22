@@ -60,7 +60,15 @@ function normalizeChild(c) {
     dailyPlan: sanitizeDailyPlan(c.dailyPlan),
     planUntil: sanitizePlanUntil(c.planUntil),
     allowMulDiv: !!c.allowMulDiv,   // multiplication & division off until parent enables
+    hideEnglish: !!c.hideEnglish,             // parent toggle: pause English entirely (unused by UI)
+    hideEnglishLetters: !!c.hideEnglishLetters, // parent toggle: English stays, ABC letter drills hidden
   };
+}
+
+// The subjects a child actually sees right now (a paused subject is hidden
+// everywhere: home card, sessions, plan, insights — but its data is kept).
+export function activeSubjects(profile) {
+  return (profile.subjects || []).filter(s => !(s === 'english' && profile.hideEnglish));
 }
 
 function ensureDataDir() {
@@ -108,7 +116,7 @@ export function getChild(id) {
 }
 
 /** Add a new child. `seq` makes the id unique without relying on Date.now(). */
-export function addChild({ name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, avatar, photo }) {
+export function addChild({ name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, hideEnglish, hideEnglishLetters, avatar, photo }) {
   const list = readChildren();
   const base = 'kid';
   let n = 1;
@@ -128,6 +136,8 @@ export function addChild({ name, gender, subject, subjects, mathLevel, grade, en
     dailyPlan: sanitizeDailyPlan(dailyPlan),            // e.g. {math: 20, english: 20}
     planUntil: sanitizePlanUntil(planUntil),            // last day of the daily plan
     allowMulDiv: !!allowMulDiv,                         // show multiplication/division only when true
+    hideEnglish: !!hideEnglish,
+    hideEnglishLetters: !!hideEnglishLetters,           // hide ABC drills inside English
     avatar: avatar || '',
     photo: photo || '',
     builtin: false,
@@ -137,7 +147,7 @@ export function addChild({ name, gender, subject, subjects, mathLevel, grade, en
   return child;
 }
 
-export function updateChild(id, { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, avatar, photo }) {
+export function updateChild(id, { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, hideEnglish, hideEnglishLetters, avatar, photo }) {
   const list = readChildren();
   const child = list.find(c => c.id === id);
   if (!child) return null;
@@ -158,6 +168,8 @@ export function updateChild(id, { name, gender, subject, subjects, mathLevel, gr
   if (dailyPlan !== undefined) child.dailyPlan = sanitizeDailyPlan(dailyPlan);
   if (planUntil !== undefined) child.planUntil = sanitizePlanUntil(planUntil);
   if (allowMulDiv !== undefined) child.allowMulDiv = !!allowMulDiv;
+  if (hideEnglish !== undefined) child.hideEnglish = !!hideEnglish;
+  if (hideEnglishLetters !== undefined) child.hideEnglishLetters = !!hideEnglishLetters;
   if (avatar !== undefined) child.avatar = avatar;
   if (photo !== undefined) child.photo = photo;
   writeChildren(list);
@@ -317,10 +329,12 @@ export function countTodayExercises(child, subject, date) {
  */
 export function getPlanStatus(profile, date) {
   if (!planIsActive(profile, date)) return null;
-  const subjects = Object.entries(profile.dailyPlan).map(([subject, target]) => {
-    const done = countTodayExercises(profile.id, subject, date);
-    return { subject, target, done };
-  });
+  const subjects = Object.entries(profile.dailyPlan)
+    .filter(([subject]) => !(subject === 'english' && profile.hideEnglish))
+    .map(([subject, target]) => {
+      const done = countTodayExercises(profile.id, subject, date);
+      return { subject, target, done };
+    });
   const rec = readRewardsAll()[profile.id];
   const lockedComplete = !!(rec?.stickers || []).some(s => s.date === date);
   return {
@@ -378,6 +392,43 @@ export function getRewards(child) {
     stickers,
     achievements: computeAchievements({ sessions, stickers, streak }),
   };
+}
+
+// === MAGIC BOX (קופסת הקסמים) — the parents' gift for connecting Tavixo ===
+// Unlocked when KidsLearn is connected to Tavixo; one free surprise per day.
+
+export function magicBoxState() {
+  const cfg = readConfig();
+  return {
+    unlocked: !!cfg.magicBoxUnlocked,
+    opens: Array.isArray(cfg.magicBoxOpens) ? cfg.magicBoxOpens : [],
+  };
+}
+
+export function unlockMagicBox() {
+  const cfg = readConfig();
+  if (!cfg.magicBoxUnlocked) {
+    cfg.magicBoxUnlocked = true;
+    writeConfig(cfg);
+  }
+}
+
+export function recordMagicBoxOpen(entry) {
+  const cfg = readConfig();
+  const opens = Array.isArray(cfg.magicBoxOpens) ? cfg.magicBoxOpens : [];
+  cfg.magicBoxOpens = [...opens, entry].slice(-60);
+  writeConfig(cfg);
+}
+
+/** A bonus sticker (beyond the daily one) — magic-box surprise for a child. */
+export function awardBonusSticker(child, date) {
+  const all = readRewardsAll();
+  const rec = all[child] || { stickers: [] };
+  const emoji = pickNewSticker(rec.stickers.map(s => s.emoji));
+  rec.stickers = [...rec.stickers, { emoji, date, bonus: true }];
+  all[child] = rec;
+  writeRewardsAll(all);
+  return emoji;
 }
 
 // === MINI-LESSONS (שיעורונים) — shown once per child per topic family ===

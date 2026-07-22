@@ -1,14 +1,22 @@
 import { useEffect } from 'react';
 import { speakParts, stopSpeech } from '../lib/tts';
+import AnalogClock from './AnalogClock';
 import './LessonCard.css';
 
-// A mini-lesson screen shown before the exercises when the child meets a new
-// topic for the first time — teaching, not just practice. Everything is read
-// aloud so non-readers get the full lesson.
+// A mini-lesson screen: teaching, not just practice. Shown when the child
+// meets a NEW topic, when a struggling topic is re-taught (lesson.reteach),
+// before a mistakes-practice run (lesson.practice), or on demand from the
+// "teach me" button mid-exercise (lesson.help). Everything is read aloud so
+// non-readers get the full lesson.
 export default function LessonCard({ lesson, childName, onStart }) {
+  const isNew = !lesson.reteach && !lesson.practice && !lesson.help;
+
   useEffect(() => {
+    const opening = isNew
+      ? `${childName}, היום לומדים משהו חדש: ${lesson.title}!`
+      : `${childName}, בואו ניזכר יחד איך פותרים: ${lesson.title}!`;
     const parts = [
-      { text: `${childName}, היום לומדים משהו חדש: ${lesson.title}!`, lang: 'he' },
+      { text: opening, lang: 'he' },
       ...lesson.lines.map(text => ({ text, lang: 'he' })),
       ...(lesson.example?.speak ? [{ text: lesson.example.speak, lang: 'he' }] : []),
     ];
@@ -16,10 +24,15 @@ export default function LessonCard({ lesson, childName, onStart }) {
     return () => { clearTimeout(t); stopSpeech(); };
   }, [lesson.key]);
 
+  const badge = isNew ? '🌟 נושא חדש!'
+    : lesson.practice ? '💪 נזכרים איך פותרים!'
+    : lesson.help ? '🎓 לומדים שוב יחד'
+    : '💪 מתחזקים בנושא!';
+
   return (
     <div className="lesson-screen">
       <div className="lesson-card">
-        <div className="lesson-badge">🌟 נושא חדש!</div>
+        <div className="lesson-badge">{badge}</div>
         <div className="lesson-icon">{lesson.icon}</div>
         <h1 className="lesson-title">{lesson.title}</h1>
 
@@ -29,13 +42,19 @@ export default function LessonCard({ lesson, childName, onStart }) {
 
         {lesson.example && (
           <div className="lesson-example" dir="ltr">
-            <div className="lesson-example-display">{lesson.example.display}</div>
+            {lesson.example.clock ? (
+              <div className="lesson-example-display">
+                <AnalogClock h={lesson.example.clock.h} m={lesson.example.clock.m} size={150} />
+              </div>
+            ) : (
+              <div className="lesson-example-display">{lesson.example.display}</div>
+            )}
             <div className="lesson-example-q" dir="rtl">{lesson.example.question}</div>
           </div>
         )}
 
         <button className="lesson-start" onClick={() => { stopSpeech(); onStart(); }}>
-          🚀 הבנתי, בואו נתחיל!
+          {isNew ? '🚀 הבנתי, בואו נתחיל!' : '💪 הבנתי, ממשיכים!'}
         </button>
       </div>
     </div>

@@ -187,6 +187,20 @@ async function serverLogout(token) {
   return { ok: true };
 }
 
+// Magic Box (קופסת הקסמים) — the parents' daily-surprise gift (desktop only).
+async function serverFetchMagicBox() {
+  const res = await fetch(`${BASE}/magicbox`);
+  if (!res.ok) throw new Error('Failed to fetch magic box');
+  return res.json();
+}
+
+async function serverOpenMagicBox() {
+  const res = await fetch(`${BASE}/magicbox/open`, { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to open magic box');
+  return data;
+}
+
 // Silent sign-in on a trusted family machine (desktop only) — no login screen.
 async function serverDeviceLogin() {
   const res = await fetch(`${BASE}/auth/device`);
@@ -232,6 +246,8 @@ export const loginAccount     = WEB ? local.loginAccount     : serverLogin;
 export const meAccount        = WEB ? local.meAccount        : serverMe;
 export const logoutAccount    = WEB ? local.logoutAccount    : serverLogout;
 export const deviceLogin      = WEB ? (async () => { throw new Error('web'); }) : serverDeviceLogin;
+export const fetchMagicBox    = WEB ? (async () => ({ unlocked: false })) : serverFetchMagicBox;
+export const openMagicBox     = WEB ? (async () => { throw new Error('web'); }) : serverOpenMagicBox;
 export const googleLoginStart  = WEB ? (async () => { throw new Error('לא זמין בגרסת הדפדפן'); }) : serverGoogleStart;
 export const googleLoginResult = WEB ? (async () => ({ pending: true }))                          : serverGoogleResult;
 

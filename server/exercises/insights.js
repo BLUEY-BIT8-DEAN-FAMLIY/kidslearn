@@ -166,11 +166,12 @@ function newTopicsText(subject, profile) {
   return 'אוצר המילים הבסיסי נשלט — ממשיכים להרחיב אוצר מילים ומתחילים משפטים פשוטים באנגלית.';
 }
 
-/** Full analysis for a child across their subjects. */
+/** Full analysis for a child across their subjects (paused subjects hidden). */
 export function computeInsights({ profile, sessions, stages }) {
-  const subjects = Array.isArray(profile.subjects) && profile.subjects.length
+  const subjects = (Array.isArray(profile.subjects) && profile.subjects.length
     ? profile.subjects
-    : [profile.subject || 'math'];
+    : [profile.subject || 'math'])
+    .filter(s => !(s === 'english' && profile.hideEnglish));
   return subjects.map(subject => analyzeSubject({
     sessions, subject, profile, stage: stages?.[subject] || 1,
   }));

@@ -37,6 +37,10 @@ const TYPE_LABELS = {
   en_pic_to_word: 'תמונה ← מילה', en_listen_pick: 'הבנת הנשמע',
   en_translate_to_he: 'תרגום לעברית', en_translate_to_en: 'תרגום לאנגלית',
   en_missing_letter: 'אות חסרה באנגלית', en_spell: 'כתיבה באנגלית',
+  en_next_letter: 'האות הבאה', en_upper_lower: 'אות גדולה/קטנה', en_last_letter: 'אות אחרונה באנגלית',
+  en_number_word: 'מספרים באנגלית', en_count: 'ספירה באנגלית', en_color: 'צבעים באנגלית',
+  en_verb: 'פעולות באנגלית', en_opposite: 'הפכים', en_odd_one_out: 'מה לא שייך',
+  en_plural: 'יחיד ורבים', en_scramble: 'סידור אותיות', en_sentence_fill: 'השלמת משפט', en_phrase: 'ביטויים',
 };
 
 const SUBJECT_META = {

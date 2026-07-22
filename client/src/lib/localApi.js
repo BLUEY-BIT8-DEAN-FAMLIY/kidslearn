@@ -2,9 +2,9 @@
 // Mirrors the server's storage.js logic using localStorage, and generates
 // exercises in-browser with the same pure generators the server uses.
 
-import { generateMathExercises, generatePrepMath } from '../../../server/exercises/mathGenerator.js';
+import { generateMathExercises, generatePrepMath, generateTopicMath } from '../../../server/exercises/mathGenerator.js';
 import { generateHebrewExercises } from '../../../server/exercises/hebrewGenerator.js';
-import { generateEnglishExercises } from '../../../server/exercises/englishGenerator.js';
+import { generateEnglishExercises, ABC_TYPES } from '../../../server/exercises/englishGenerator.js';
 import {
   sanitizeGrade, sanitizeEnglishLevel, sanitizeHebrewLevel, sanitizeMathStage, foldSession,
   sanitizeDailyPlan, sanitizePlanUntil, planIsActive, fitSessionToCount,
@@ -12,6 +12,7 @@ import {
 import { pickNewSticker, computePracticeStreak, computeAchievements } from '../../../server/exercises/rewards.js';
 import { computeInsights } from '../../../server/exercises/insights.js';
 import { pickLessonForSession, experiencedFamilies } from '../../../server/exercises/lessons.js';
+import { getWorkbook } from '../../../server/exercises/workbooks.js';
 
 const K = {
   history: 'kidslearn:history',
@@ -52,6 +53,8 @@ function normalizeChild(c) {
     dailyPlan: sanitizeDailyPlan(c.dailyPlan),
     planUntil: sanitizePlanUntil(c.planUntil),
     allowMulDiv: !!c.allowMulDiv,   // multiplication & division off until parent enables
+    hideEnglish: !!c.hideEnglish,
+    hideEnglishLetters: !!c.hideEnglishLetters, // English stays, ABC letter drills hidden
   };
 }
 
@@ -81,7 +84,7 @@ export async function fetchChildren() {
   return { children: readChildren().map(c => ({ ...c, todayPlan: getPlanStatus(c, today) })) };
 }
 
-export async function addChild({ name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, avatar, photo }) {
+export async function addChild({ name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, hideEnglish, hideEnglishLetters, avatar, photo }) {
   const list = readChildren();
   let n = 1;
   while (list.some(c => c.id === `kid_${n}`)) n++;
@@ -100,6 +103,8 @@ export async function addChild({ name, gender, subject, subjects, mathLevel, gra
     dailyPlan: sanitizeDailyPlan(dailyPlan),
     planUntil: sanitizePlanUntil(planUntil),
     allowMulDiv: !!allowMulDiv,
+    hideEnglish: !!hideEnglish,
+    hideEnglishLetters: !!hideEnglishLetters,
     avatar: avatar || '',
     photo: photo || '',
     builtin: false,
@@ -109,7 +114,7 @@ export async function addChild({ name, gender, subject, subjects, mathLevel, gra
   return { ok: true, child };
 }
 
-export async function updateChild(id, { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, avatar, photo }) {
+export async function updateChild(id, { name, gender, subject, subjects, mathLevel, grade, englishLevel, hebrewLevel, mathStage, dailyPlan, planUntil, allowMulDiv, hideEnglish, hideEnglishLetters, avatar, photo }) {
   const list = readChildren();
   const child = list.find(c => c.id === id);
   if (!child) throw new Error('הילד לא נמצא');
@@ -130,6 +135,8 @@ export async function updateChild(id, { name, gender, subject, subjects, mathLev
   if (dailyPlan !== undefined) child.dailyPlan = sanitizeDailyPlan(dailyPlan);
   if (planUntil !== undefined) child.planUntil = sanitizePlanUntil(planUntil);
   if (allowMulDiv !== undefined) child.allowMulDiv = !!allowMulDiv;
+  if (hideEnglish !== undefined) child.hideEnglish = !!hideEnglish;
+  if (hideEnglishLetters !== undefined) child.hideEnglishLetters = !!hideEnglishLetters;
   if (avatar !== undefined) child.avatar = avatar;
   if (photo !== undefined) child.photo = photo;
   write(K.children, list);
@@ -219,7 +226,9 @@ function countTodayExercises(child, subject, date) {
 
 function getPlanStatus(profile, date) {
   if (!planIsActive(profile, date)) return null;
-  const subjects = Object.entries(profile.dailyPlan).map(([subject, target]) => ({
+  const subjects = Object.entries(profile.dailyPlan)
+    .filter(([subject]) => !(subject === 'english' && profile.hideEnglish))
+    .map(([subject, target]) => ({
     subject, target, done: countTodayExercises(profile.id, subject, date),
   }));
   // Sticker = per-day completion lock: raising the quota mid-day never
@@ -327,7 +336,11 @@ export async function fetchMistakes(child) {
   const profile = getChildProfile(child);
   if (!profile) throw new Error('Unknown child');
   const mistakes = {};
-  for (const s of profile.subjects) mistakes[s] = getMistakesList(child, s);
+  for (const s of profile.subjects.filter(x => !(x === 'english' && profile.hideEnglish))) {
+    mistakes[s] = getMistakesList(child, s);
+    if (s === 'english' && profile.hideEnglishLetters)
+      mistakes[s] = mistakes[s].filter(m => !ABC_TYPES.includes(m.exercise?.type));
+  }
   return { child, mistakes };
 }
 
@@ -357,28 +370,44 @@ function computeWeakness(child, lookback = 5) {
 export async function fetchExercises(child, date, subject, operation = 'mix') {
   const profile = getChildProfile(child);
   if (!profile) throw new Error('Unknown child');
-  const chosen = profile.subjects.includes(subject) ? subject : profile.subjects[0];
+  const enabledSubjects = profile.subjects.filter(x => !(x === 'english' && profile.hideEnglish));
+  const chosen = enabledSubjects.includes(subject) ? subject : enabledSubjects[0];
+  // 'topic:clock' = focused practice; 'book:clock' = interactive workbook
+  // (teaching pages + guided practice). Neither consumes the review queue.
+  const opStr = String(operation || '');
+  const topicId = opStr.startsWith('topic:') ? opStr.slice(6) : null;
+  const bookId = opStr.startsWith('book:') ? opStr.slice(5) : null;
+  const focusId = topicId || bookId;
   const weakness = computeWeakness(child);
-  const reviewExercises = popReviewQueue(reviewKey(child, chosen), 3);
+  let reviewExercises = focusId ? [] : popReviewQueue(reviewKey(child, chosen), 3);
+  // A hidden topic must not sneak back in through resurfaced review questions.
+  if (chosen === 'english' && profile.hideEnglishLetters)
+    reviewExercises = reviewExercises.filter(r => !ABC_TYPES.includes(r.type));
   const progress = getProgress(child, chosen);
   const effectiveStage = chosen === 'english'
     ? Math.max(progress.stage, profile.englishLevel || 1)
     : chosen === 'hebrew'
       ? Math.max(progress.stage, profile.hebrewLevel || 1)
       : Math.max(progress.stage, profile.mathStage || 1);
+  const topicCtx = { track: profile.grade, stage: effectiveStage, level: profile.mathLevel, allowMulDiv: profile.allowMulDiv };
   const makeSession = () => chosen === 'english'
-    ? generateEnglishExercises(effectiveStage, reviewExercises, profile.grade)
+    ? generateEnglishExercises(effectiveStage, reviewExercises, profile.grade, profile.hideEnglishLetters)
     : chosen === 'hebrew'
       ? generateHebrewExercises(weakness, reviewExercises, effectiveStage, profile.grade)
-      : profile.grade
-        ? generatePrepMath(profile.grade, effectiveStage, reviewExercises, operation, profile.allowMulDiv)
-        : generateMathExercises(weakness, reviewExercises, profile.mathLevel, operation);
+      : bookId
+        ? generateTopicMath(bookId, topicCtx, [], { workbook: true })
+        : topicId
+          ? generateTopicMath(topicId, topicCtx)
+          : profile.grade
+            ? generatePrepMath(profile.grade, effectiveStage, reviewExercises, operation, profile.allowMulDiv)
+            : generateMathExercises(weakness, reviewExercises, profile.mathLevel, operation);
 
   // Daily summer plan: size the session to what's left of today's quota.
   // A completed (locked) day serves regular sessions — see getPlanStatus.
+  // Topic sessions keep their short focused size (still count toward the quota).
   const planNow = getPlanStatus(profile, date);
   let exercises;
-  if (planNow && !planNow.complete) {
+  if (!focusId && planNow && !planNow.complete) {
     const target = profile.dailyPlan[chosen];
     const remaining = target ? target - countTodayExercises(child, chosen, date) : 0;
     exercises = remaining > 0 ? fitSessionToCount(makeSession, remaining) : makeSession();
@@ -386,19 +415,28 @@ export async function fetchExercises(child, date, subject, operation = 'mix') {
     exercises = makeSession();
   }
 
-  // Mini-lesson on first encounter with a topic family (mirrors the server).
+  // Mini-lesson on first encounter with a topic family (mirrors the server),
+  // or a re-teach lesson when the child keeps struggling with a family.
+  // Workbook sessions skip it — the workbook IS the teaching.
   const progressAll = read(K.progress, {});
   const seenKeys = Array.isArray(progressAll[`lessons:${child}`]) ? progressAll[`lessons:${child}`] : [];
-  const lesson = pickLessonForSession(exercises, {
+  const lesson = bookId ? null : pickLessonForSession(exercises, {
     seenKeys,
     experiencedKeys: experiencedFamilies(readHistory()[child]),
+    sessions: readHistory()[child],
+    date,
   });
-  if (lesson && !seenKeys.includes(lesson.key)) {
-    progressAll[`lessons:${child}`] = [...seenKeys, lesson.key];
-    write(K.progress, progressAll);
+  if (lesson) {
+    const mark = lesson.markKey || lesson.key;
+    if (!seenKeys.includes(mark)) {
+      progressAll[`lessons:${child}`] = [...seenKeys, mark];
+      write(K.progress, progressAll);
+    }
   }
 
-  return { child, subject: chosen, date, exercises, weakness, track: profile.grade || null, stage: effectiveStage, lesson };
+  const workbook = bookId ? getWorkbook(bookId) : null;
+
+  return { child, subject: chosen, date, exercises, weakness, track: profile.grade || null, stage: effectiveStage, lesson, workbook };
 }
 
 export async function saveSession(payload) {

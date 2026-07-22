@@ -1,0 +1,109 @@
+.wb-screen {
+  width: 100%;
+  max-width: 680px;
+  display: flex;
+  justify-content: center;
+}
+
+.wb-card {
+  position: relative;
+  background: #fff;
+  border-radius: 26px;
+  padding: 30px 30px 26px;
+  width: 100%;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  border-top: 8px solid #ffce54;
+}
+
+.wb-badge {
+  background: linear-gradient(135deg, #fff3d6, #ffe6a8);
+  color: #8a6d1a;
+  border-radius: 20px;
+  padding: 5px 16px;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.wb-progress { display: flex; gap: 6px; }
+.wb-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #e5e7f5;
+}
+.wb-dot.done { background: #43a047; }
+.wb-dot.now { background: #ffce54; transform: scale(1.25); }
+
+.wb-icon { font-size: 3rem; line-height: 1; }
+.wb-title { color: #333; font-size: 1.7rem; font-weight: 800; margin: 0; }
+
+.wb-line {
+  color: #444;
+  font-size: 1.18rem;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 540px;
+}
+
+.wb-visual { margin: 6px 0; }
+.wb-display {
+  background: #f6f7ff;
+  border: 2px dashed #c5cae9;
+  border-radius: 16px;
+  padding: 16px 22px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #3949ab;
+  white-space: pre-line;
+  line-height: 1.7;
+}
+
+.wb-steps { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 520px; }
+.wb-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #f6fff6;
+  border: 2px solid #c8e6c9;
+  border-radius: 14px;
+  padding: 10px 14px;
+  text-align: right;
+  animation: wb-pop 0.25s ease;
+}
+@keyframes wb-pop { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.wb-step-num {
+  flex-shrink: 0;
+  width: 26px; height: 26px;
+  background: #43a047;
+  color: #fff;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 0.9rem;
+}
+.wb-step-text { color: #2e5d31; font-size: 1.08rem; line-height: 1.5; }
+
+.wb-result {
+  background: linear-gradient(135deg, #fff8e1, #ffecb3);
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #7a5c00;
+  animation: wb-pop 0.3s ease;
+}
+
+.wb-next {
+  margin-top: 8px;
+  background: linear-gradient(135deg, #5c6bc0, #3949ab);
+  color: #fff;
+  border-radius: 16px;
+  padding: 14px 34px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  box-shadow: 0 8px 22px rgba(57, 73, 171, 0.4);
+  transition: transform 0.15s;
+}
+.wb-next:hover { transform: translateY(-2px); }
