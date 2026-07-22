@@ -42,7 +42,9 @@ export default function AuthScreen({ onAuthed }) {
     setGoogleWaiting(false);
   }
 
-  // Open Google sign-in in the system browser, then wait for it to finish.
+  // Desktop: open Google sign-in in the system browser and poll for the
+  // result. Web: googleLoginStart() redirects THIS page to Google, and the
+  // returning redirect is completed in App.jsx — no polling needed.
   async function googleSignIn() {
     setError(null);
     try {
@@ -51,6 +53,7 @@ export default function AuthScreen({ onAuthed }) {
       setError(err.message);
       return;
     }
+    if (IS_WEB) return;   // the page is navigating away to Google
     setGoogleWaiting(true);
     const startedAt = Date.now();
     pollRef.current = setInterval(async () => {
@@ -155,21 +158,17 @@ export default function AuthScreen({ onAuthed }) {
           {busy ? '…' : (isRegister ? '✨ צור חשבון' : '🔑 התחבר')}
         </button>
 
-        {!IS_WEB && (
-          <>
-            <div className="auth-divider"><span>או</span></div>
-            {googleWaiting ? (
-              <div className="auth-google-wait">
-                <div className="auth-google-spinner" />
-                ממתין לאישור בדפדפן…
-                <button type="button" className="auth-toggle" onClick={stopGooglePoll}>ביטול</button>
-              </div>
-            ) : (
-              <button type="button" className="auth-google" onClick={googleSignIn} disabled={busy}>
-                <GoogleIcon /> התחבר עם Google
-              </button>
-            )}
-          </>
+        <div className="auth-divider"><span>או</span></div>
+        {googleWaiting ? (
+          <div className="auth-google-wait">
+            <div className="auth-google-spinner" />
+            ממתין לאישור בדפדפן…
+            <button type="button" className="auth-toggle" onClick={stopGooglePoll}>ביטול</button>
+          </div>
+        ) : (
+          <button type="button" className="auth-google" onClick={googleSignIn} disabled={busy}>
+            <GoogleIcon /> התחבר עם Google
+          </button>
         )}
 
         <button
@@ -180,7 +179,11 @@ export default function AuthScreen({ onAuthed }) {
           {isRegister ? 'כבר יש חשבון? התחברו' : 'אין עדיין חשבון? הירשמו'}
         </button>
       </form>
-      <div className="auth-footer">🔒 הסיסמה נשמרת מוצפנת על המחשב הזה</div>
+      <div className="auth-footer">
+        {IS_WEB
+          ? '🔒 החשבון וההתקדמות נשמרים בדפדפן במכשיר הזה'
+          : '🔒 הסיסמה נשמרת מוצפנת על המחשב הזה'}
+      </div>
     </div>
   );
 }

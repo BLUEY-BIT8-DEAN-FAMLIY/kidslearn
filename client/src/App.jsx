@@ -2,57 +2,55 @@ import { useState, useEffect } from 'react';
 import HomeScreen from './components/HomeScreen';
 import ExerciseSession from './components/ExerciseSession';
 import ParentsScreen from './components/ParentsScreen';
-import WelcomeScreen from './components/WelcomeScreen';
 import MistakesScreen from './components/MistakesScreen';
 import AuthScreen from './components/AuthScreen';
-import { IS_WEB, meAccount, logoutAccount, deviceLogin } from './api';
+import { IS_WEB, meAccount, logoutAccount, completeGoogleRedirect } from './api';
 import './App.css';
 
-// Remember the guest choice so returning visitors skip the welcome screen.
-function hasEnteredAsGuest() {
-  try { return localStorage.getItem('kidslearn:guest') === '1'; } catch { return false; }
-}
-
-// Persisted account session (desktop) — keeps the user logged in across launches.
+// Account session — WEB ONLY. The installed desktop app never asks to
+// register or log in: the family's children and history live locally on the
+// machine, so it opens straight into the home screen. The web version, in
+// contrast, REQUIRES an account (no guest entry).
 const AUTH_KEY = 'kidslearn:auth';
 function loadAuth() { try { return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); } catch { return null; } }
 function saveAuth(a) { try { localStorage.setItem(AUTH_KEY, JSON.stringify(a)); } catch {} }
 function clearAuth() { try { localStorage.removeItem(AUTH_KEY); } catch {} }
 
 export default function App() {
-  const [view, setView] = useState({ name: 'home' }); // 'home' | 'session' | 'parents'
-  // The welcome / guest screen exists ONLY in the web version.
-  // The locally-installed desktop app is unaffected (IS_WEB is false there).
-  const [entered, setEntered] = useState(() => !IS_WEB || hasEnteredAsGuest());
+  const [view, setView] = useState({ name: 'home' }); // 'home' | 'session' | 'mistakes' | 'parents'
 
-  // Desktop accounts: require login. The web build keeps the guest flow.
-  const [auth, setAuth] = useState(() => (IS_WEB ? null : loadAuth()));
-  const [authReady, setAuthReady] = useState(IS_WEB);
+  // Web: restore the saved session, then validate it quietly.
+  const [auth, setAuth] = useState(() => (IS_WEB ? loadAuth() : null));
+  const [authReady, setAuthReady] = useState(!IS_WEB);
 
   useEffect(() => {
-    if (IS_WEB) return;
+    if (!IS_WEB) return;
     let alive = true;
 
-    // A trusted family machine signs in silently — no login screen at home.
-    const trySilent = () => deviceLogin()
+    // Back from Google? The URL hash carries a Supabase access token —
+    // exchange it for a local session before anything else.
+    completeGoogleRedirect()
       .then(r => {
-        if (!alive || !r?.ok) return;
+        if (!alive || !r?.ok) return null;
         const a = { token: r.token, email: r.user.email, name: r.user.name };
         saveAuth(a);
         setAuth(a);
+        return a;
       })
-      .catch(() => {})   // not trusted yet → the login/register screen shows
-      .finally(() => { if (alive) setAuthReady(true); });
-
-    const stored = loadAuth();
-    if (!stored?.token) { trySilent(); return () => { alive = false; }; }
-    meAccount(stored.token)
-      .then(r => {
-        if (!alive) return;
-        if (r?.ok) { setAuth({ token: stored.token, email: r.user.email, name: r.user.name }); setAuthReady(true); }
-        else { clearAuth(); setAuth(null); trySilent(); }   // stale token → silent re-login
-      })
-      .catch(() => { if (alive) setAuthReady(true); });   // transient error: keep the stored session
+      .catch(() => null)   // failed/expired Google redirect → regular sign-in
+      .then(googleSession => {
+        if (!alive || googleSession) { if (alive) setAuthReady(true); return; }
+        const stored = loadAuth();
+        if (!stored?.token) { setAuthReady(true); return; }
+        meAccount(stored.token)
+          .then(r => {
+            if (!alive) return;
+            if (r?.ok) setAuth({ token: stored.token, email: r.user.email, name: r.user.name });
+            else { clearAuth(); setAuth(null); }   // stale token → sign in again
+          })
+          .catch(() => {})                          // transient error: keep the stored session
+          .finally(() => { if (alive) setAuthReady(true); });
+      });
     return () => { alive = false; };
   }, []);
 
@@ -63,21 +61,10 @@ export default function App() {
     setView({ name: 'home' });
   }
 
-  // Gate the desktop app behind login / registration.
-  if (!IS_WEB) {
+  // Web gate: a registered account is required (no guest mode).
+  if (IS_WEB) {
     if (!authReady) return <div className="auth"><div className="auth-footer">טוען…</div></div>;
     if (!auth) return <AuthScreen onAuthed={(a) => { saveAuth(a); setAuth(a); }} />;
-  }
-
-  if (IS_WEB && !entered) {
-    return (
-      <WelcomeScreen
-        onGuest={() => {
-          try { localStorage.setItem('kidslearn:guest', '1'); } catch {}
-          setEntered(true);
-        }}
-      />
-    );
   }
 
   if (view.name === 'session') {
@@ -111,7 +98,7 @@ export default function App() {
 
   return (
     <>
-      {!IS_WEB && auth && (
+      {IS_WEB && auth && (
         <button
           onClick={handleLogout}
           title={auth.email}

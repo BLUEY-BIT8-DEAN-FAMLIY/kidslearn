@@ -248,7 +248,9 @@ export const logoutAccount    = WEB ? local.logoutAccount    : serverLogout;
 export const deviceLogin      = WEB ? (async () => { throw new Error('web'); }) : serverDeviceLogin;
 export const fetchMagicBox    = WEB ? (async () => ({ unlocked: false })) : serverFetchMagicBox;
 export const openMagicBox     = WEB ? (async () => { throw new Error('web'); }) : serverOpenMagicBox;
-export const googleLoginStart  = WEB ? (async () => { throw new Error('לא זמין בגרסת הדפדפן'); }) : serverGoogleStart;
-export const googleLoginResult = WEB ? (async () => ({ pending: true }))                          : serverGoogleResult;
+export const googleLoginStart  = WEB ? local.googleLoginStart  : serverGoogleStart;
+export const googleLoginResult = WEB ? local.googleLoginResult : serverGoogleResult;
+// Web only: turn a Supabase #access_token redirect (back from Google) into a session.
+export const completeGoogleRedirect = WEB ? local.completeGoogleRedirect : (async () => null);
 
 export const IS_WEB = WEB;

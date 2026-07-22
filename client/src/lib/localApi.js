@@ -564,3 +564,58 @@ export async function logoutAccount(token) {
   if (u) { u.token = null; write(K.users, users); }
   return { ok: true };
 }
+
+// ── Google sign-in (web build: Supabase implicit flow, no server) ──────────
+// The page redirects to Supabase's authorize endpoint; Google authenticates;
+// Supabase redirects back here with #access_token in the URL hash, which
+// completeGoogleRedirect() turns into a local account session. Only the
+// identity (email + name) comes from Google — all data stays in this browser.
+// NOTE: the web app's URL must be listed in Supabase → Auth → URL
+// Configuration → Redirect URLs, otherwise Supabase falls back to the Site URL.
+const SUPABASE_URL = 'https://gkodcsmksurhlnxvpiry.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_dGqsCHlAHyA-hKeNuvljtg_ZDEyeNw_'; // publishable — public by design
+
+export async function googleLoginStart() {
+  const redirect = window.location.origin + window.location.pathname;
+  window.location.href =
+    `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirect)}`;
+  return { ok: true, redirecting: true };
+}
+
+// The web flow never polls — the page navigates away and comes back.
+export async function googleLoginResult() {
+  return { ok: false, pending: true };
+}
+
+/**
+ * If the URL carries a Supabase #access_token (back from Google), turn it
+ * into a local session: fetch the identity, upsert a google-flagged account,
+ * and return {ok, token, user}. Returns null when there is nothing to do.
+ */
+export async function completeGoogleRedirect() {
+  const hash = String(window.location.hash || '');
+  if (!hash.includes('access_token=')) return null;
+  const params = new URLSearchParams(hash.replace(/^#/, ''));
+  const accessToken = params.get('access_token');
+  // Scrub the tokens from the URL/history immediately, success or not.
+  try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch {}
+  if (!accessToken) return null;
+
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error('אימות Google נכשל — נסו שוב');
+  const info = await res.json();
+  const email = String(info.email || '').trim().toLowerCase();
+  if (!email) throw new Error('לא התקבל אימייל מ-Google');
+  const name = String(info.user_metadata?.full_name || info.user_metadata?.name || '').trim();
+
+  const users = read(K.users, []);
+  let acc = users.find(x => x.email === email);
+  if (!acc) { acc = { email, name, google: true }; users.push(acc); }
+  acc.google = true;                   // identity account — no password login
+  if (name && !acc.name) acc.name = name;
+  acc.token = newToken();
+  write(K.users, users);
+  return { ok: true, token: acc.token, user: { email, name: acc.name || '' } };
+}
