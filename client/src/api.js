@@ -252,5 +252,8 @@ export const googleLoginStart  = WEB ? local.googleLoginStart  : serverGoogleSta
 export const googleLoginResult = WEB ? local.googleLoginResult : serverGoogleResult;
 // Web only: turn a Supabase #access_token redirect (back from Google) into a session.
 export const completeGoogleRedirect = WEB ? local.completeGoogleRedirect : (async () => null);
+// Web only: Google Identity Services — the official button's JWT → local session.
+export const googleCredentialLogin = WEB ? local.googleCredentialLogin : (async () => { throw new Error('desktop'); });
+export const GOOGLE_WEB_CLIENT_ID = local.GOOGLE_WEB_CLIENT_ID;
 
 export const IS_WEB = WEB;

@@ -587,10 +587,23 @@ export async function googleLoginResult() {
   return { ok: false, pending: true };
 }
 
+// Upsert the local account for a Google identity and mint a session.
+function googleLocalSession(email, name) {
+  const users = read(K.users, []);
+  let acc = users.find(x => x.email === email);
+  if (!acc) { acc = { email, name, google: true }; users.push(acc); }
+  acc.google = true;                   // identity account — no password login
+  if (name && !acc.name) acc.name = name;
+  acc.token = newToken();
+  write(K.users, users);
+  return { ok: true, token: acc.token, user: { email, name: acc.name || '' } };
+}
+
 /**
  * If the URL carries a Supabase #access_token (back from Google), turn it
  * into a local session: fetch the identity, upsert a google-flagged account,
  * and return {ok, token, user}. Returns null when there is nothing to do.
+ * (Legacy path — the primary web sign-in is Google Identity Services below.)
  */
 export async function completeGoogleRedirect() {
   const hash = String(window.location.hash || '');
@@ -609,13 +622,27 @@ export async function completeGoogleRedirect() {
   const email = String(info.email || '').trim().toLowerCase();
   if (!email) throw new Error('לא התקבל אימייל מ-Google');
   const name = String(info.user_metadata?.full_name || info.user_metadata?.name || '').trim();
+  return googleLocalSession(email, name);
+}
 
-  const users = read(K.users, []);
-  let acc = users.find(x => x.email === email);
-  if (!acc) { acc = { email, name, google: true }; users.push(acc); }
-  acc.google = true;                   // identity account — no password login
-  if (name && !acc.name) acc.name = name;
-  acc.token = newToken();
-  write(K.users, users);
-  return { ok: true, token: acc.token, user: { email, name: acc.name || '' } };
+// ── Google Identity Services (primary web sign-in — no Supabase involved) ──
+// The official Google button returns a signed ID-token JWT; we only need the
+// identity (email + name) for a device-local account, so decoding the payload
+// client-side is sufficient — there is no server or cloud data to protect.
+export const GOOGLE_WEB_CLIENT_ID = '986091348674-s0vc3kjhaer172ae4ol6rh56uur61h92.apps.googleusercontent.com';
+
+function decodeJwtPayload(jwt) {
+  const part = String(jwt || '').split('.')[1] || '';
+  const b64 = part.replace(/-/g, '+').replace(/_/g, '/');
+  return JSON.parse(decodeURIComponent(escape(atob(b64))));
+}
+
+export async function googleCredentialLogin(credential) {
+  let payload;
+  try { payload = decodeJwtPayload(credential); }
+  catch { throw new Error('אימות Google נכשל — נסו שוב'); }
+  const email = String(payload.email || '').trim().toLowerCase();
+  if (!email) throw new Error('לא התקבל אימייל מ-Google');
+  const name = String(payload.name || '').trim();
+  return googleLocalSession(email, name);
 }

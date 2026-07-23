@@ -162,3 +162,13 @@
 .auth-toggle:hover { text-decoration: underline; }
 
 .auth-footer { color: rgba(255, 255, 255, 0.9); font-size: 0.85rem; }
+
+/* Google Identity Services container (web) */
+.auth-gis {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+.auth-gis-loading { color: #888; font-size: 0.9rem; }
